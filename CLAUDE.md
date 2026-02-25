@@ -1,6 +1,6 @@
 # DS-principles-curriculum — Инструкции для Claude Code
 
-> **Тип репо:** Downstream/surface
+> **Тип репо:** DS/surface
 > **Upstream Pack:** PACK-education (EDU) — методика обучения
 > **Upstream Content:** ZP (нулевые принципы), FPF (первые принципы)
 > **Объект:** Конкретные программы обучения принципам мышления
