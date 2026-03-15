@@ -398,7 +398,7 @@ guides_source: [1-1-self-development, 1-2-self-development-methods, 1-3-systems-
 
 **Источник:** DP.IWE.001 §3, LEARNING-PATH.md §1.2
 
-- IWE = Intelligent Working Environment (≠ просто экзокортекс)
+- IWE = Intellectual Work Environment (≠ просто экзокортекс)
 - IWE описывается через 4 архитектурных вида (ISO 42010):
   - **Системы (U.System):** Claude Code, бот, MCP, Git
   - **Описания (U.Description):** экзокортекс, Pack, методология
