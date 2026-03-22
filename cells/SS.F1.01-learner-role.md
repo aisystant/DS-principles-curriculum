@@ -23,8 +23,8 @@ cell:
     - "Могу объяснить метафору: учиться без IWE = программировать в блокноте"
 
   methods:
-    primary: [EDU.M.001]
-    meta: [EDU.M.006, EDU.M.007]
+    primary: [MIM.M.006]
+    meta: [MIM.M.011, MIM.M.012]
     notes: "Scaffolding через метафору IDE. На первой глубине — узнавание роли. Не требовать самоидентификации."
 
   prerequisites:
@@ -71,8 +71,8 @@ cell:
     - "Могу объяснить, зачем нужна IWE (интеллектуальная рабочая среда) для осознанного обучения"
 
   methods:
-    primary: [EDU.M.001, EDU.M.002]
-    meta: [EDU.M.006, EDU.M.007]
+    primary: [MIM.M.006, MIM.M.007]
+    meta: [MIM.M.011, MIM.M.012]
     notes: "Scaffolding + начальный PBL: связать роль с личным контекстом. Примеры из профессии пользователя."
 
   prerequisites:

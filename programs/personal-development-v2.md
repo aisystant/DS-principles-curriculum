@@ -6,7 +6,7 @@ created: 2026-02-24
 audience: "Взрослые 17+, средний портрет: работающий профессионал 20-35"
 duration: "4-6 месяцев (Standard)"
 outcome: "Проактивный ученик с работающей IWE и Pack по своей области"
-upstream_pack: [PACK-personal, PACK-education]
+upstream_pack: [PACK-personal, PACK-MIM]
 upstream_content: [ZP, FPF]
 formalizations: [PD.FORM.001, PD.FORM.002, PD.FORM.003]
 roles: [PD.ROLE.001, PD.ROLE.TRAJ.001]
@@ -117,7 +117,7 @@ guides_source: [1-1-self-development, 1-2-self-development-methods, 1-3-systems-
 
 - Ученик — это **роль** (не состояние и не «этап жизни»), с 4 объектами внимания: мировоззрение / характеристики / состояния / мастерство
 - Метафора: учиться без IWE = программировать в блокноте без IDE
-- Различение: обучение ≠ информирование (EDU.D.007). Читать ≠ учиться
+- Различение: обучение ≠ информирование (MIM.D.021). Читать ≠ учиться
 - 5 ступеней зрелости ученика — диагностика «где я сейчас»
 - Ролевая траектория Ученик→Просветитель — «что за горизонтом»
 
@@ -410,7 +410,7 @@ guides_source: [1-1-self-development, 1-2-self-development-methods, 1-3-systems-
 
 ### 4.8. Pack: структурирование доменного знания
 
-**Источник:** PACK-education; DS-principles-curriculum CLAUDE.md
+**Источник:** PACK-MIM; DS-principles-curriculum CLAUDE.md
 
 - Что такое Pack: паспорт предметной области (source-of-truth)
 - Структура: bounded context, ubiquitous language, сущности
@@ -489,7 +489,7 @@ guides_source: [1-1-self-development, 1-2-self-development-methods, 1-3-systems-
 
 ### 5.4. Pack: завершение и валидация
 
-**Источник:** DS-principles-curriculum; PACK-education
+**Источник:** DS-principles-curriculum; PACK-MIM
 
 - Pack доведён до ≥ 10 сущностей с заполненными полями
 - Peer-review: хотя бы 1 человек использовал ваш Pack
