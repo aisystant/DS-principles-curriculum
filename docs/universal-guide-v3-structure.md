@@ -174,10 +174,10 @@ CAT.003 кратко — 8 методов саморазвития × 4 степ
 
 | Часть | Статус | Примечание |
 |-------|--------|------------|
-| Предисловие | pending | |
-| Часть I (гл 1–4) | pending | Старт 30 мар |
-| Часть II (гл 5–11) | pending | |
-| Часть III (гл 12–15) | pending | |
-| Часть IV (гл 16–20) | pending | |
-| Эпилог | pending | |
-| Приложения | pending | |
+| Предисловие | draft | book/preface.md — 30 мар |
+| Часть I (гл 1–4) | draft | book/part-1-problem.md — 30 мар |
+| Часть II (гл 5–11) | draft | book/part-2-map.md — 30 мар |
+| Часть III (гл 12–15) | draft | book/part-3-instrument.md — 30 мар |
+| Часть IV (гл 16–20) | draft | book/part-4-question.md — 30 мар |
+| Эпилог | draft | book/epilogue-and-appendices.md — 30 мар |
+| Приложения | draft | book/epilogue-and-appendices.md — 30 мар |
