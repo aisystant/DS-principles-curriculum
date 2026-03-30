@@ -1,0 +1,98 @@
+# CAT.001 — Каталог непродуктивных мемов
+
+> **Источник:** PD.CAT.001-memes-catalog.md (PACK-personal)
+> **Всего карточек:** 64
+> **Областей:** 5
+
+Каждая карточка — один непродуктивный мем. Формат: диагностика + 3 глубины (Осознание → Различение → Компиляция).
+
+---
+
+## Область 1 — Знания (12 карточек)
+
+| ID | Файл | Мем | Переход |
+|----|------|-----|---------|
+| M-001 | [M-001-i-already-know.md](M-001-i-already-know.md) | «Я это уже знаю» | 2→3 |
+| M-002 | [M-002-theory-useless.md](M-002-theory-useless.md) | «Теория бесполезна, нужна практика» | 1→2 |
+| M-003 | [M-003-my-experience.md](M-003-my-experience.md) | «Мой опыт говорит об обратном» | 3→4 |
+| M-004 | [M-004-not-applicable.md](M-004-not-applicable.md) | «Это ко мне не применимо» | 2→3 |
+| M-005 | [M-005-read-book-know.md](M-005-read-book-know.md) | «Прочитал книгу — знаю» | 2→3 |
+| M-006 | [M-006-description-is-knowledge.md](M-006-description-is-knowledge.md) | «Описание — это и есть знание» | 2→3 |
+| M-007 | [M-007-study-first-act-later.md](M-007-study-first-act-later.md) | «Нужно сначала всё изучить, потом действовать» | 2→3 |
+| M-008 | [M-008-all-normal.md](M-008-all-normal.md) | «Всё так и должно быть, я нормальный» | 1→2 |
+| M-009 | [M-009-success-no-problems.md](M-009-success-no-problems.md) | «Успех — когда проблемы исчезнут» | 3→4 |
+| M-010 | [M-010-others-life-better.md](M-010-others-life-better.md) | «Чужая жизнь точно лучше моей» | 1→2 |
+| M-011 | [M-011-find-calling.md](M-011-find-calling.md) | «Нужно найти призвание, тогда всё сложится» | 1→2 |
+| M-012 | [M-012-not-qualified-yet.md](M-012-not-qualified-yet.md) | «Ещё недостаточно квалифицирован» | 3→4 |
+| M-051 | [M-051-know-everything.md](M-051-know-everything.md) | «Я уже знаю всё, что нужно» | 3→4 |
+| M-052 | [M-052-proactivity-more-initiative.md](M-052-proactivity-more-initiative.md) | «Проактивность = больше инициативы» | 3→4 |
+
+## Область 2 — Инструменты (7 карточек)
+
+| ID | Файл | Мем | Переход |
+|----|------|-----|---------|
+| M-013 | [M-013-perfect-knowledge-base.md](M-013-perfect-knowledge-base.md) | «Нужна идеальная база знаний» | 2→3 |
+| M-014 | [M-014-tool-solves-method.md](M-014-tool-solves-method.md) | «Инструмент решит мою проблему с методом» | 1→2 |
+| M-015 | [M-015-ai-will-tell.md](M-015-ai-will-tell.md) | «ИИ скажет мне что делать» | 3→4 |
+| M-016 | [M-016-notes-someday.md](M-016-notes-someday.md) | «Мои заметки пригодятся когда-нибудь» | 2→3 |
+| M-017 | [M-017-time-tracking-punishment.md](M-017-time-tracking-punishment.md) | «Учёт времени — контроль и самонаказание» | 1→2 |
+| M-018 | [M-018-pomodoro-is-tracking.md](M-018-pomodoro-is-tracking.md) | «Помодоро = учёт времени» | 1→2 |
+| M-019 | [M-019-pomodoro-just-timer.md](M-019-pomodoro-just-timer.md) | «Помодоро = просто таймер» | 2→3 |
+
+## Область 3 — Ограничения (14 карточек)
+
+| ID | Файл | Мем | Переход |
+|----|------|-----|---------|
+| M-020 | [M-020-no-time.md](M-020-no-time.md) | «У меня нет времени на развитие» | 1→2 |
+| M-021 | [M-021-development-sacrifice.md](M-021-development-sacrifice.md) | «Развитие — это жертва» | 1→2 |
+| M-022 | [M-022-lazy-no-motivation.md](M-022-lazy-no-motivation.md) | «Я ленивый / нет мотивации» | 1→2 |
+| M-023 | [M-023-mistake-punish.md](M-023-mistake-punish.md) | «Ошибка — повод себя наказать» | 2→3 |
+| M-024 | [M-024-shame-unfinished.md](M-024-shame-unfinished.md) | «Стыдно показывать незаконченное» | 2→3 |
+| M-025 | [M-025-perfect-before-start.md](M-025-perfect-before-start.md) | «Должен быть идеальным, прежде чем начинать» | 2→3 |
+| M-026 | [M-026-not-ideal-dont-do.md](M-026-not-ideal-dont-do.md) | «Не идеально — лучше не делать» | 2→3 |
+| M-027 | [M-027-thinking-in-head.md](M-027-thinking-in-head.md) | «Размышления в голове — это мышление» | 2→3 |
+| M-028 | [M-028-insight-equals-change.md](M-028-insight-equals-change.md) | «Инсайт = изменение» | 2→3 |
+| M-029 | [M-029-someday-will-do.md](M-029-someday-will-do.md) | «Когда-нибудь сделаю, ещё не время» | 1→2 |
+| M-030 | [M-030-too-old-to-change.md](M-030-too-old-to-change.md) | «Слишком стар, поздно менять» | 3→4 |
+| M-031 | [M-031-evening-important.md](M-031-evening-important.md) | «Вечером займусь важным» | 2→3 |
+| M-046 | [M-046-too-early-real-project.md](M-046-too-early-real-project.md) | «Мне ещё рано делать настоящий проект» | 1→2 |
+| M-047 | [M-047-dont-change-work-style.md](M-047-dont-change-work-style.md) | «Рабочий стиль не менять» | 1→2 |
+| M-048 | [M-048-busyness-productivity.md](M-048-busyness-productivity.md) | «Занятость = продуктивность» | 1→2 |
+
+## Область 4 — Окружение (9 карточек)
+
+| ID | Файл | Мем | Переход |
+|----|------|-----|---------|
+| M-032 | [M-032-environment-given.md](M-032-environment-given.md) | «Моё окружение — данность» | 1→2 |
+| M-033 | [M-033-everyone-does-it.md](M-033-everyone-does-it.md) | «Все вокруг так делают» | 1→2 |
+| M-034 | [M-034-i-am-my-role.md](M-034-i-am-my-role.md) | «Я и есть моя роль» | 2→3 |
+| M-035 | [M-035-success-money-position.md](M-035-success-money-position.md) | «Успех = деньги и должность» | 3→4 |
+| M-036 | [M-036-when-rich-easy-life.md](M-036-when-rich-easy-life.md) | «Когда разбогатею, жизнь станет лёгкой» | 1→2 |
+| M-037 | [M-037-victim-position.md](M-037-victim-position.md) | «Я слаб, помогите мне» (позиция жертвы) | 1→2 |
+| M-038 | [M-038-career-first.md](M-038-career-first.md) | «Карьера — главное, остальное подождёт» | 3→4 |
+| M-039 | [M-039-dont-need-teachers.md](M-039-dont-need-teachers.md) | «Мне не нужны учителя» | 3→4 |
+| M-049 | [M-049-nothing-to-teach.md](M-049-nothing-to-teach.md) | «Мне нечему учить других» | 3→4 |
+| M-050 | [M-050-teaching-tell-everything.md](M-050-teaching-tell-everything.md) | «Учить = рассказать всё, что знаю» | 3→4 |
+
+## Область 5 — Организм (25 карточек)
+
+| ID | Файл | Мем | Переход |
+|----|------|-----|---------|
+| M-040 | [M-040-sleep-for-weak.md](M-040-sleep-for-weak.md) | «Сон — для слабых» | 1→2 |
+| M-041 | [M-041-rest-waste-time.md](M-041-rest-waste-time.md) | «Отдых — это потеря времени» | 2→3 |
+| M-042 | [M-042-free-time-passive.md](M-042-free-time-passive.md) | «В свободное время можно просто потупить» | 1→2 |
+| M-043 | [M-043-burnout-normal-price.md](M-043-burnout-normal-price.md) | «Выгорание — нормальная цена за успех» | 3→4 |
+| M-044 | [M-044-body-can-wait.md](M-044-body-can-wait.md) | «Тело подождёт, голова важнее» | 2→3 |
+| M-045 | [M-045-life-should-be-easy.md](M-045-life-should-be-easy.md) | «Жизнь должна быть лёгкой» | 1→2 |
+| M-053 | [M-053-nothing-interesting.md](M-053-nothing-interesting.md) | «Мне уже ничего не интересно» | 3→4 |
+| M-054 | [M-054-rest-enough-tired.md](M-054-rest-enough-tired.md) | «Отдыхаю достаточно — просто устаю» | 3→4 |
+| M-055 | [M-055-evening-only-sofa.md](M-055-evening-only-sofa.md) | «Вечером сил хватит только на диван» | 3→4 |
+| M-056 | [M-056-rest-is-not-work.md](M-056-rest-is-not-work.md) | «Отдых — это просто не-работа» | 0→1 |
+| M-057 | [M-057-leisure-no-planning.md](M-057-leisure-no-planning.md) | «Досуг не нужно планировать» | 1→2 |
+| M-058 | [M-058-wait-for-vacation.md](M-058-wait-for-vacation.md) | «Потерплю до отпуска» | 1→2 |
+| M-059 | [M-059-alarm-morning.md](M-059-alarm-morning.md) | «Будильник на утро, а не на вечер» | 0→1 |
+| M-060 | [M-060-plan-kills-spontaneity.md](M-060-plan-kills-spontaneity.md) | «Если всё запланирую, потеряю спонтанность» | 2→3 |
+| M-061 | [M-061-just-push-through.md](M-061-just-push-through.md) | «Просто нужно собраться и продавить» | 1→2 |
+| M-062 | [M-062-life-is-normal.md](M-062-life-is-normal.md) | «Жизнь и так нормальная, зачем менять» | 0→1 |
+| M-063 | [M-063-not-creative.md](M-063-not-creative.md) | «Я не творческий человек» | 1→2 |
+| M-064 | [M-064-sleep-sport-grey-life.md](M-064-sleep-sport-grey-life.md) | «Высыпаюсь, спорт делаю — жизнь серая» | 2→3 |
