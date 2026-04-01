@@ -4,6 +4,7 @@ name: «Проактивность = больше инициативы»
 area: 1
 entry_stage: 1
 blocks_transition: "3→4"
+context: Саморазвитие
 source: PD.CAT.001
 status: current
 ---

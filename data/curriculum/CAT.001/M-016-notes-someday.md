@@ -4,6 +4,7 @@ name: «Мои заметки пригодятся когда-нибудь»
 area: 2
 entry_stage: 1
 blocks_transition: "2→3"
+context: Саморазвитие
 source: PD.CAT.001
 status: current
 ---

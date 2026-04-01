@@ -4,6 +4,7 @@ name: «Учёт времени — контроль и самонаказани
 area: 2
 entry_stage: 0
 blocks_transition: "1→2"
+context: Саморазвитие
 source: PD.CAT.001
 status: current
 ---

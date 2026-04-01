@@ -4,6 +4,7 @@ name: «Выгорание — нормальная цена за успех»
 area: 5
 entry_stage: 1
 blocks_transition: "3→4"
+context: Досуг
 source: PD.CAT.001
 status: current
 ---

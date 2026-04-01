@@ -1,14 +1,14 @@
 # CAT.001 — Каталог непродуктивных мемов
 
 > **Источник:** PD.CAT.001-memes-catalog.md (PACK-personal)
-> **Всего карточек:** 64
+> **Всего карточек:** 72 (добавлено 5 карточек: M-065–M-069 + M-070, M-071, M-072 (Работа 2→3) — 2026-04-01)
 > **Областей:** 5
 
 Каждая карточка — один непродуктивный мем. Формат: диагностика + 3 глубины (Осознание → Различение → Компиляция).
 
 ---
 
-## Область 1 — Знания (12 карточек)
+## Область 1 — Знания (17 карточек)
 
 | ID | Файл | Мем | Переход |
 |----|------|-----|---------|
@@ -26,6 +26,10 @@
 | M-012 | [M-012-not-qualified-yet.md](M-012-not-qualified-yet.md) | «Ещё недостаточно квалифицирован» | 3→4 |
 | M-051 | [M-051-know-everything.md](M-051-know-everything.md) | «Я уже знаю всё, что нужно» | 3→4 |
 | M-052 | [M-052-proactivity-more-initiative.md](M-052-proactivity-more-initiative.md) | «Проактивность = больше инициативы» | 3→4 |
+| M-065 | [M-065-development-not-for-me.md](M-065-development-not-for-me.md) | «Развитие — это не для меня, я другой» | 0→1 |
+| M-066 | [M-066-dont-know-where-to-start.md](M-066-dont-know-where-to-start.md) | «Не знаю с чего начать — значит рано начинать» | 0→1 |
+| M-067 | [M-067-need-permission-to-start.md](M-067-need-permission-to-start.md) | «Нужно разрешение чтобы начать — диплом, опыт, должность» | 0→1 |
+| M-068 | [M-068-work-is-activity-not-result.md](M-068-work-is-activity-not-result.md) | «Я работаю, когда что-то делаю» | 1→2 |
 
 ## Область 2 — Инструменты (7 карточек)
 
@@ -39,7 +43,7 @@
 | M-018 | [M-018-pomodoro-is-tracking.md](M-018-pomodoro-is-tracking.md) | «Помодоро = учёт времени» | 1→2 |
 | M-019 | [M-019-pomodoro-just-timer.md](M-019-pomodoro-just-timer.md) | «Помодоро = просто таймер» | 2→3 |
 
-## Область 3 — Ограничения (14 карточек)
+## Область 3 — Ограничения (15 карточек)
 
 | ID | Файл | Мем | Переход |
 |----|------|-----|---------|
@@ -58,8 +62,9 @@
 | M-046 | [M-046-too-early-real-project.md](M-046-too-early-real-project.md) | «Мне ещё рано делать настоящий проект» | 1→2 |
 | M-047 | [M-047-dont-change-work-style.md](M-047-dont-change-work-style.md) | «Рабочий стиль не менять» | 1→2 |
 | M-048 | [M-048-busyness-productivity.md](M-048-busyness-productivity.md) | «Занятость = продуктивность» | 1→2 |
+| M-069 | [M-069-consistency-not-required.md](M-069-consistency-not-required.md) | «Я работаю когда хочется — дисциплина не нужна» | 1→2 |
 
-## Область 4 — Окружение (9 карточек)
+## Область 4 — Окружение (12 карточек)
 
 | ID | Файл | Мем | Переход |
 |----|------|-----|---------|
@@ -73,6 +78,9 @@
 | M-039 | [M-039-dont-need-teachers.md](M-039-dont-need-teachers.md) | «Мне не нужны учителя» | 3→4 |
 | M-049 | [M-049-nothing-to-teach.md](M-049-nothing-to-teach.md) | «Мне нечему учить других» | 3→4 |
 | M-050 | [M-050-teaching-tell-everything.md](M-050-teaching-tell-everything.md) | «Учить = рассказать всё, что знаю» | 3→4 |
+| M-070 | [M-070-feedback-is-criticism.md](M-070-feedback-is-criticism.md) | «Обратная связь — это критика и оценка меня» | 2→3 |
+| M-071 | [M-071-follow-instructions-dont-think.md](M-071-follow-instructions-dont-think.md) | «Моя задача — выполнить инструкцию, думать не надо» | 2→3 |
+| M-072 | [M-072-no-problems-means-good-work.md](M-072-no-problems-means-good-work.md) | «Нет жалоб — значит всё хорошо» | 2→3 |
 
 ## Область 5 — Организм (25 карточек)
 
@@ -96,6 +104,18 @@
 | M-062 | [M-062-life-is-normal.md](M-062-life-is-normal.md) | «Жизнь и так нормальная, зачем менять» | 0→1 |
 | M-063 | [M-063-not-creative.md](M-063-not-creative.md) | «Я не творческий человек» | 1→2 |
 | M-064 | [M-064-sleep-sport-grey-life.md](M-064-sleep-sport-grey-life.md) | «Высыпаюсь, спорт делаю — жизнь серая» | 2→3 |
+
+---
+
+## Покрытие: контекст × переход (обновлено 2026-04-01, по frontmatter)
+
+| | 0→1 | 1→2 | 2→3 | 3→4 |
+|---|---|---|---|---|
+| **Саморазвитие** | 2 (M-065, M-066) | 12 | 15 | 7 |
+| **Работа** | 1 (M-067) | 8 | 4 (M-034, M-070, M-071, M-072) | 5 |
+| **Досуг** | 3 | 7 | 4 | 4 |
+
+> Покрытие по frontmatter. Пробелов нет — все квадраты ≥1.
 
 ---
 

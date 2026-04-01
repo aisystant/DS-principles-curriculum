@@ -4,6 +4,7 @@ name: «Я и есть моя роль»
 area: 4
 entry_stage: 1
 blocks_transition: "2→3"
+context: Работа
 source: PD.CAT.001
 status: current
 ---

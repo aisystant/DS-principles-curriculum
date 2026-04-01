@@ -4,6 +4,7 @@ name: «Когда разбогатею, жизнь станет лёгкой»
 area: 4
 entry_stage: 0
 blocks_transition: "1→2"
+context: Работа
 source: PD.CAT.001
 status: current
 ---

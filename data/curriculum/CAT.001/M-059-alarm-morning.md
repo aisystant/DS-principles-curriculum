@@ -4,6 +4,7 @@ name: «Будильник на утро, а не на вечер»
 area: 5
 entry_stage: 0
 blocks_transition: "0→1"
+context: Досуг
 source: PD.CAT.001
 status: current
 ---

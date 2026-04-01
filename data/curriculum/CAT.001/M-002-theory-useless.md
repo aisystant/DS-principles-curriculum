@@ -4,6 +4,7 @@ name: «Теория бесполезна, нужна практика»
 area: 1
 entry_stage: 0
 blocks_transition: "1→2"
+context: Саморазвитие
 source: PD.CAT.001
 status: current
 ---

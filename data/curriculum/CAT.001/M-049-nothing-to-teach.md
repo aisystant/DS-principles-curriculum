@@ -4,6 +4,7 @@ name: «Мне нечему учить других»
 area: 4
 entry_stage: 1
 blocks_transition: "3→4"
+context: Работа
 source: PD.CAT.001
 status: current
 ---

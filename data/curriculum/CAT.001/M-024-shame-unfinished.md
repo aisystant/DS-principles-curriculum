@@ -4,6 +4,7 @@ name: «Стыдно показывать незаконченное»
 area: 3
 entry_stage: 1
 blocks_transition: "2→3"
+context: Саморазвитие
 source: PD.CAT.001
 status: current
 ---
