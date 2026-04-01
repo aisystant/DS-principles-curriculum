@@ -3,6 +3,7 @@ id: CAT.003.METHOD.009
 name: Планирование
 area: 2
 source: PD.METHOD.009
+context: Саморазвитие
 status: current
 ---
 

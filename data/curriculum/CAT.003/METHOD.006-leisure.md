@@ -3,6 +3,7 @@ id: CAT.003.METHOD.006
 name: Организация досуга
 area: 5
 source: PD.METHOD.006
+context: Досуг
 status: current
 ---
 

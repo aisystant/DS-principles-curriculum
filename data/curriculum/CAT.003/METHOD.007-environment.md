@@ -3,6 +3,7 @@ id: CAT.003.METHOD.007
 name: Формирование окружения
 area: 4
 source: PD.METHOD.007
+context: Работа
 status: current
 ---
 

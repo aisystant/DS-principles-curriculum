@@ -3,6 +3,7 @@ id: CAT.003.METHOD.005
 name: Мышление проговариванием
 area: 1
 source: PD.METHOD.005
+context: Саморазвитие
 status: current
 ---
 

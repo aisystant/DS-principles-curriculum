@@ -3,6 +3,7 @@ id: CAT.003.METHOD.001
 name: Инвестирование и учёт времени
 area: 2
 source: PD.METHOD.001
+context: Саморазвитие
 status: current
 ---
 

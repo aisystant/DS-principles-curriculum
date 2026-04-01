@@ -3,6 +3,7 @@ id: CAT.003.METHOD.004
 name: Мышление письмом
 area: 1
 source: PD.METHOD.004
+context: Саморазвитие
 status: current
 ---
 

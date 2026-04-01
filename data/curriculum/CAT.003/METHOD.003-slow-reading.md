@@ -3,6 +3,7 @@ id: CAT.003.METHOD.003
 name: Систематическое медленное чтение
 area: 1
 source: PD.METHOD.003
+context: Саморазвитие
 status: current
 ---
 

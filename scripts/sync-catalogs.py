@@ -156,6 +156,7 @@ def parse_meme_card(path: Path) -> dict | None:
         "area": int(fm.get("area", 1)),
         "entry_stage": int(fm.get("entry_stage", 0)),
         "blocks_transition": fm.get("blocks_transition", ""),
+        "context": fm.get("context", ""),
         "distinction": distinction,
         "antithesis": antithesis,
         "diagnostics": diag,

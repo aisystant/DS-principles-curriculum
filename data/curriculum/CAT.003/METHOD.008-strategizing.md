@@ -3,6 +3,7 @@ id: CAT.003.METHOD.008
 name: Стратегирование
 area: 1
 source: PD.METHOD.008
+context: Саморазвитие
 status: current
 ---
 
