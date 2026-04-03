@@ -1,18 +1,30 @@
 ---
 id: CAT.003
-name: Каталог практик ученика
-source: PACK-personal PD.METHOD.*
+name: Каталог практик — 5 областей × 3 контекста
+source: PACK-personal PD.METHOD.*, PD.CAT.002, PD.FORM.081, PD.FORM.082
 status: current
-version: 1.0
+version: 2.0
 ---
 
-# CAT.003 — Каталог практик ученика
+# CAT.003 — Каталог практик (5 областей × 3 контекста)
 
-8 практик саморазвития × 4 степени освоения. Source-of-truth для DS-principles-curriculum.
+19 практик × 4 степени освоения. Полное покрытие матрицы FORM.081 (5 областей) × FORM.082 (3 контекста). Source-of-truth для DS-principles-curriculum.
 
-**Синхронизация в бот:** `scripts/sync-cat003.py` → `data/catalogs/practices.json` (scope: WP-175)
+**Синхронизация:** `scripts/sync-catalogs.py` → `practices.json` в DS-autonomous-agents/agents/tailor/
 
-## Практики
+## Матрица покрытия
+
+| Область \ Контекст | Саморазвитие | Работа | Досуг |
+|---|---|---|---|
+| **1. Знания** | METHOD.003, 004, 005, 008 | PRACTICE.013 | PRACTICE.017 |
+| **2. Инструменты** | METHOD.001, 009 | PRACTICE.014 | PRACTICE.018 |
+| **3. Ограничения** | PRACTICE.010 | PRACTICE.015 | PRACTICE.019 |
+| **4. Окружение** | PRACTICE.011 | METHOD.007 | PRACTICE.020 |
+| **5. Организм** | PRACTICE.012 | PRACTICE.016 | METHOD.006 |
+
+**Все 15 ячеек заполнены.** Портной может выдать практику в любой комбинации область × контекст.
+
+## Практики — Саморазвитие (8)
 
 | ID | Название | Область |
 |----|----------|---------|
@@ -20,10 +32,31 @@ version: 1.0
 | [METHOD.003](METHOD.003-slow-reading.md) | Систематическое медленное чтение | 1 — Знания |
 | [METHOD.004](METHOD.004-writing-thinking.md) | Мышление письмом | 1 — Знания |
 | [METHOD.005](METHOD.005-speaking-thinking.md) | Мышление проговариванием | 1 — Знания |
-| [METHOD.006](METHOD.006-leisure.md) | Организация досуга | 5 — Организм |
-| [METHOD.007](METHOD.007-environment.md) | Формирование окружения | 4 — Окружение |
 | [METHOD.008](METHOD.008-strategizing.md) | Стратегирование | 1 — Знания |
 | [METHOD.009](METHOD.009-planning.md) | Планирование | 2 — Инструменты |
+| [PRACTICE.010](PRACTICE.010-stop-moment.md) | Стоп-момент и декомпозиция | 3 — Ограничения |
+| [PRACTICE.011](PRACTICE.011-environment-for-learning.md) | Формирование среды для обучения | 4 — Окружение |
+| [PRACTICE.012](PRACTICE.012-conscious-recovery.md) | Осознанное восстановление в ритме развития | 5 — Организм |
+
+## Практики — Работа (4)
+
+| ID | Название | Область |
+|----|----------|---------|
+| [PRACTICE.013](PRACTICE.013-reflection-in-work.md) | Рефлексия и различения в рабочем контексте | 1 — Знания |
+| [PRACTICE.014](PRACTICE.014-iwe-in-work.md) | IWE и экзокортекс в рабочем контексте | 2 — Инструменты |
+| [PRACTICE.015](PRACTICE.015-work-constraints.md) | Управление ограничениями в работе | 3 — Ограничения |
+| [METHOD.007](METHOD.007-environment.md) | Формирование окружения | 4 — Окружение |
+| [PRACTICE.016](PRACTICE.016-energy-in-work.md) | Управление энергией в рабочем дне | 5 — Организм |
+
+## Практики — Досуг (4)
+
+| ID | Название | Область |
+|----|----------|---------|
+| [PRACTICE.017](PRACTICE.017-reflection-of-impressions.md) | Рефлексия впечатлений | 1 — Знания |
+| [PRACTICE.018](PRACTICE.018-leisure-tools.md) | Инструменты качественного досуга | 2 — Инструменты |
+| [PRACTICE.019](PRACTICE.019-leisure-anti-loops.md) | Антипетли отдыха | 3 — Ограничения |
+| [PRACTICE.020](PRACTICE.020-leisure-environment.md) | Среда для качественного досуга | 4 — Окружение |
+| [METHOD.006](METHOD.006-leisure.md) | Организация досуга | 5 — Организм |
 
 ## Структура карточки
 
@@ -41,3 +74,10 @@ version: 1.0
 | 2 | Умение | Регулярная практика несколько месяцев |
 | 3 | Навык | Автоматизировано, приносит удовольствие |
 | 4 | Мастерство | Годы практики, обучает других |
+
+## Механизм добучения
+
+1. **lesson_rating + completion_status** в ЦД после каждого задания (SOP.001)
+2. **Куратор:** еженедельный ревью карточек (30 мин/нед)
+3. **Capture-to-Pack:** пользователь T4 предлагает практику → inbox → ревью → карточка
+4. **Ф8 (W17-18):** калибровка весов на 10+ пользователях

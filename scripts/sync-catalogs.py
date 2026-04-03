@@ -229,7 +229,9 @@ def build_practices_json(cat002_dir: Path, cat003_dir: Path) -> dict:
         if card:
             practices.append(card)
 
-    for f in sorted(cat003_dir.glob("METHOD*.md")):
+    for f in sorted(cat003_dir.glob("*.md")):
+        if f.name == "README.md":
+            continue
         card = parse_practice_card(f, "CAT.003")
         if card:
             practices.append(card)
