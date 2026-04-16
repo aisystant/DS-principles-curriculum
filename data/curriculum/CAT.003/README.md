@@ -8,7 +8,7 @@ version: 2.0
 
 # CAT.003 — Каталог практик (5 областей × 3 контекста)
 
-19 практик × 4 степени освоения. Полное покрытие матрицы FORM.081 (5 областей) × FORM.082 (3 контекста). Source-of-truth для DS-principles-curriculum.
+27 практик × 4 степени освоения. Полное покрытие матрицы FORM.081 (5 областей) × FORM.082 (3 контекста) + 8 практик системного мышления и созидания (встречи 6-7, 2026-04-12/16). Source-of-truth для DS-principles-curriculum.
 
 **Синхронизация:** `scripts/sync-catalogs.py` → `practices.json` в DS-autonomous-agents/agents/tailor/
 
@@ -16,10 +16,10 @@ version: 2.0
 
 | Область \ Контекст | Саморазвитие | Работа | Досуг |
 |---|---|---|---|
-| **1. Знания** | METHOD.003, 004, 005, 008 | PRACTICE.013 | PRACTICE.017 |
+| **1. Знания** | METHOD.003, 004, 005, 008, PRACTICE.025, 026 | PRACTICE.013, 028 | PRACTICE.017 |
 | **2. Инструменты** | METHOD.001, 009 | PRACTICE.014 | PRACTICE.018 |
 | **3. Ограничения** | PRACTICE.010 | PRACTICE.015 | PRACTICE.019 |
-| **4. Окружение** | PRACTICE.011 | METHOD.007 | PRACTICE.020 |
+| **4. Окружение** | PRACTICE.011 | METHOD.007, PRACTICE.027 | PRACTICE.020 |
 | **5. Организм** | PRACTICE.012 | PRACTICE.016 | METHOD.006 |
 
 **Все 15 ячеек заполнены.** Портной может выдать практику в любой комбинации область × контекст.
@@ -37,8 +37,13 @@ version: 2.0
 | [PRACTICE.010](PRACTICE.010-stop-moment.md) | Стоп-момент и декомпозиция | 3 — Ограничения |
 | [PRACTICE.011](PRACTICE.011-environment-for-learning.md) | Формирование среды для обучения | 4 — Окружение |
 | [PRACTICE.012](PRACTICE.012-conscious-recovery.md) | Осознанное восстановление в ритме развития | 5 — Организм |
+| [PRACTICE.021](PRACTICE.021-working-product-in-physical-world.md) | Дотягивание до рабочего продукта | 2 — Инструменты |
+| [PRACTICE.022](PRACTICE.022-system-nesting-levels.md) | Три уровня вложенности: подсистема → система → надсистема | 2 — Инструменты |
+| [PRACTICE.024](PRACTICE.024-object-system-role-view.md) | Три взгляда на одну вещь: объект, система, роль | 2 — Инструменты |
+| [PRACTICE.025](PRACTICE.025-three-creator-roles.md) | Три роли созидателя: предприниматель, инженер, менеджер | 1 — Знания |
+| [PRACTICE.026](PRACTICE.026-creation-chains.md) | Цепочки создания — кто создаёт создателей | 1 — Знания |
 
-## Практики — Работа (4)
+## Практики — Работа (4 + 2 системного мышления)
 
 | ID | Название | Область |
 |----|----------|---------|
@@ -47,6 +52,9 @@ version: 2.0
 | [PRACTICE.015](PRACTICE.015-work-constraints.md) | Управление ограничениями в работе | 3 — Ограничения |
 | [METHOD.007](METHOD.007-environment.md) | Формирование окружения | 4 — Окружение |
 | [PRACTICE.016](PRACTICE.016-energy-in-work.md) | Управление энергией в рабочем дне | 5 — Организм |
+| [PRACTICE.023](PRACTICE.023-context-over-model.md) | Контекст важнее модели | 2 — Инструменты |
+| [PRACTICE.027](PRACTICE.027-conscious-role-performance.md) | Осознанное исполнение ролей: роль ≠ исполнитель | 4 — Окружение |
+| [PRACTICE.028](PRACTICE.028-target-system-creation-systems.md) | Целевая система и системы создания | 1 — Знания |
 
 ## Практики — Досуг (4)
 
