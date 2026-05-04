@@ -1,14 +1,14 @@
 # CAT.001 — Каталог непродуктивных мемов
 
 > **Источник:** PD.CAT.001-memes-catalog.md (PACK-personal)
-> **Всего карточек:** 74 (добавлено M-073, M-074 из встречи 6 практикума — 2026-04-12)
+> **Всего карточек:** 89 (добавлено M-075—M-089 из WP-245 Ф14 — 2026-05-04)
 > **Областей:** 5
 
 Каждая карточка — один непродуктивный мем. Формат: диагностика + 3 глубины (Осознание → Различение → Компиляция).
 
 ---
 
-## Область 1 — Знания (18 карточек)
+## Область 1 — Знания (20 карточек)
 
 | ID | Файл | Мем | Переход |
 |----|------|-----|---------|
@@ -31,8 +31,10 @@
 | M-067 | [M-067-need-permission-to-start.md](M-067-need-permission-to-start.md) | «Нужно разрешение чтобы начать — диплом, опыт, должность» | 0→1 |
 | M-068 | [M-068-work-is-activity-not-result.md](M-068-work-is-activity-not-result.md) | «Я работаю, когда что-то делаю» | 1→2 |
 | M-074 | [M-074-better-than-others-fast.md](M-074-better-than-others-fast.md) | «Быстро схвачу на фоне остальных» | 1→2 |
+| M-075 | [M-075-learning-without-life-purpose-is-waste.md](M-075-learning-without-life-purpose-is-waste.md) | «Обучение без дела жизни — трата времени» | 0→1 |
+| M-076 | [M-076-worldview-is-just-words.md](M-076-worldview-is-just-words.md) | «Мировоззрение — это просто слова, не программа действий» | 2→3 |
 
-## Область 2 — Инструменты (7 карточек)
+## Область 2 — Инструменты (12 карточек)
 
 | ID | Файл | Мем | Переход |
 |----|------|-----|---------|
@@ -43,8 +45,13 @@
 | M-017 | [M-017-time-tracking-punishment.md](M-017-time-tracking-punishment.md) | «Учёт времени — контроль и самонаказание» | 1→2 |
 | M-018 | [M-018-pomodoro-is-tracking.md](M-018-pomodoro-is-tracking.md) | «Помодоро = учёт времени» | 1→2 |
 | M-019 | [M-019-pomodoro-just-timer.md](M-019-pomodoro-just-timer.md) | «Помодоро = просто таймер» | 2→3 |
+| M-077 | [M-077-ai-will-do-it-for-me.md](M-077-ai-will-do-it-for-me.md) | «ИИ сделает за меня — мне учиться необязательно» | 2→3 |
+| M-078 | [M-078-smarter-ai-less-thinking-needed.md](M-078-smarter-ai-less-thinking-needed.md) | «Чем умнее ИИ, тем меньше мне нужно думать» | 3→4 |
+| M-079 | [M-079-prompt-engineering-is-enough.md](M-079-prompt-engineering-is-enough.md) | «Достаточно научиться правильно задавать вопросы ИИ» | 2→3 |
+| M-080 | [M-080-if-ai-explained-i-understood.md](M-080-if-ai-explained-i-understood.md) | «ИИ объяснил — значит я понял» | 2→3 |
+| M-081 | [M-081-ai-is-either-threat-or-savior.md](M-081-ai-is-either-threat-or-savior.md) | «ИИ — это либо угроза, либо спаситель» | 1→2 |
 
-## Область 3 — Ограничения (16 карточек)
+## Область 3 — Ограничения (18 карточек)
 
 | ID | Файл | Мем | Переход |
 |----|------|-----|---------|
@@ -65,8 +72,10 @@
 | M-048 | [M-048-busyness-productivity.md](M-048-busyness-productivity.md) | «Занятость = продуктивность» | 1→2 |
 | M-069 | [M-069-consistency-not-required.md](M-069-consistency-not-required.md) | «Я работаю когда хочется — дисциплина не нужна» | 1→2 |
 | M-073 | [M-073-exam-sprint-mindset.md](M-073-exam-sprint-mindset.md) | «Два дня перед экзаменом, главное сдать» | 1→2 |
+| M-082 | [M-082-no-pain-no-growth.md](M-082-no-pain-no-growth.md) | «Нет боли — нет роста» | 1→2 |
+| M-083 | [M-083-i-develop-for-others-not-myself.md](M-083-i-develop-for-others-not-myself.md) | «Развиваюсь ради других, не ради себя» | 1→2 |
 
-## Область 4 — Окружение (12 карточек)
+## Область 4 — Окружение (13 карточек)
 
 | ID | Файл | Мем | Переход |
 |----|------|-----|---------|
@@ -83,8 +92,9 @@
 | M-070 | [M-070-feedback-is-criticism.md](M-070-feedback-is-criticism.md) | «Обратная связь — это критика и оценка меня» | 2→3 |
 | M-071 | [M-071-follow-instructions-dont-think.md](M-071-follow-instructions-dont-think.md) | «Моя задача — выполнить инструкцию, думать не надо» | 2→3 |
 | M-072 | [M-072-no-problems-means-good-work.md](M-072-no-problems-means-good-work.md) | «Нет жалоб — значит всё хорошо» | 2→3 |
+| M-084 | [M-084-ai-changes-market-ill-wait-and-see.md](M-084-ai-changes-market-ill-wait-and-see.md) | «ИИ меняет рынок — подожду и посмотрю» | 1→2 |
 
-## Область 5 — Организм (25 карточек)
+## Область 5 — Организм (30 карточек)
 
 | ID | Файл | Мем | Переход |
 |----|------|-----|---------|
@@ -106,6 +116,11 @@
 | M-062 | [M-062-life-is-normal.md](M-062-life-is-normal.md) | «Жизнь и так нормальная, зачем менять» | 0→1 |
 | M-063 | [M-063-not-creative.md](M-063-not-creative.md) | «Я не творческий человек» | 1→2 |
 | M-064 | [M-064-sleep-sport-grey-life.md](M-064-sleep-sport-grey-life.md) | «Высыпаюсь, спорт делаю — жизнь серая» | 2→3 |
+| M-085 | [M-085-productive-state-will-come-on-its-own.md](M-085-productive-state-will-come-on-its-own.md) | «Продуктивное состояние придёт само» | 1→2 |
+| M-086 | [M-086-tired-from-learning-need-rest-not-method.md](M-086-tired-from-learning-need-rest-not-method.md) | «Устал от обучения — нужен отдых, а не метод» | 2→3 |
+| M-087 | [M-087-i-learn-when-anxious-thats-development.md](M-087-i-learn-when-anxious-thats-development.md) | «Учусь когда тревожно — значит развиваюсь» | 2→3 |
+| M-088 | [M-088-despondency-means-stop.md](M-088-despondency-means-stop.md) | «Уныние — это сигнал остановиться» | 2→3 |
+| M-089 | [M-089-cant-develop-when-no-energy.md](M-089-cant-develop-when-no-energy.md) | «Нельзя развиваться когда нет сил — это невозможно» | 1→2 |
 
 ---
 
