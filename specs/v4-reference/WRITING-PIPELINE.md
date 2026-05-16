@@ -7,6 +7,20 @@ created: 2026-05-16
 
 # Конвейер написания подразделов универсальных руководств v4
 
+## Место размещения файлов (source-of-truth)
+
+| Что | Где лежит | Репо | Путь |
+|-----|-----------|------|------|
+| **Финальные тексты подразделов v4** | Source-of-truth для пилотов | `aisystant/docs` | `docs/ru/personal-new/1-N-guide-name/section/subsection.md` |
+| **Структура, спецификации, конвейер** | Техническая документация | `aisystant/DS-principles-curriculum` | `specs/v4-reference/` |
+| **Concept Maps (граф понятий)** | Источник понятий | `aisystant/DS-principles-curriculum` | `specs/v4-reference/0N-concept-map-guide-N.md` |
+| **Реестр понятий** | Автогенерация | `TserenTserenov/DS-my-strategy` | `inbox/WP-300-concept-registry.md` |
+| **Pack PD (FORM/METHOD)** | Источник определений | `PACK-personal` | `pack/personal-development/` |
+
+**Правило:** финальный текст подраздела коммитится в `aisystant/docs/docs/ru/personal-new/`. Черновики, структура и конвейер — в `aisystant/DS-principles-curriculum/specs/v4-reference/`. Не писать финальные тексты в `DS-principles-curriculum/docs/v4/` (это draft, удалён).
+
+---
+
 ## Общая схема
 
 ```
