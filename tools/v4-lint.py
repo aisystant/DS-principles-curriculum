@@ -29,11 +29,29 @@ CONCEPT_MARKERS = {
     "кейс в тексте", "аналогия в тексте",
 }
 
+# A.11 Ontological Parsimony: предел «вводится» на подраздел (FPF A.11, WRITING-PIPELINE §«Распределение понятий»).
+A11_INTRODUCES_LIMIT = 3
+
+# A.1.1 Bounded Context: руководства 1-2 не вводят и не упоминают IWE-узел (WRITING-PIPELINE Этап 4 п.4).
+GUIDES_FORBID_IWE = {1, 2}
+
+# Кейсы и аналогии, которые не должны попадать в `вводится` (это иллюстрации, не понятия).
+# Источник: 07-concept-candidates-v4.md «Кейсы (не понятия)». Сравнение через substring (lowercased).
+# Корни выбраны так, чтобы покрыть русские формы (Земмельвейс / Земмельвейса) и при этом
+# не давать ложных срабатываний на реальные понятия (Аудит Болида — это U.Method, не случай).
+KNOWN_CASE_TOKENS = {
+    "земмельвейс",   # «Эффект Земмельвейса» и пр.
+    "хохланд",       # «Хохланд» (корпоративный кейс)
+}
+
 SUBSECTION_ID_RE = re.compile(r"PD\.GUIDE\.([1-4])\.S(\d+)\.SS(\d+)")
 SECTION_HEADER_RE = re.compile(r"^##\s+Раздел\s+(\d+)\.")
 SUBSECTION_HEADER_RE = re.compile(r"^###\s+(\d+)\.(\d+)\s+")
 INLINE_YAML_RE = re.compile(r"```yaml\n(.*?)\n```", re.DOTALL)
 CP_BH_RE = re.compile(r"\b(cp\.[a-z]+|bh\.[a-z]+)\b")
+# Источник Pack: PD.FORM.NNN / PD.METHOD.NNN / PD.CAT.NNN. Без префикса PD. не считается.
+PACK_SOURCE_RE = re.compile(r"\bPD\.(?:FORM|METHOD|CAT)\.\d+")
+UTYPE_RE = re.compile(r"U\.[A-Za-z]+")
 
 
 @dataclass
@@ -129,7 +147,11 @@ def parse_yaml_block(block: str) -> dict:
 
 
 def parse_concepts_block(lines: list[str], start_idx: int) -> tuple[list[dict], list[str], int]:
-    """Разобрать блок **Понятия:** начиная с start_idx. Возвращает (concepts, raw_lines, next_idx)."""
+    """Разобрать блок **Понятия:** начиная с start_idx. Возвращает (concepts, raw_lines, next_idx).
+
+    Каждый concept: {marker, name, raw, parent?, pack_source?, ref?}.
+    raw_lines включают спец-маркеры `<unknown-marker:X>` и `<malformed-bullet:LINE>` для FAIL-репортинга.
+    """
     concepts: list[dict] = []
     raw: list[str] = []
     i = start_idx
@@ -140,23 +162,33 @@ def parse_concepts_block(lines: list[str], start_idx: int) -> tuple[list[dict], 
             raw.append(line)
             content = stripped[2:].strip()
             m = re.match(r'^([а-яА-Я ]+?):\s*(.+)$', content)
-            if m:
-                marker = m.group(1).strip()
-                rest = m.group(2).strip()
-                if marker in CONCEPT_MARKERS:
-                    concept = {"marker": marker, "raw": content}
-                    name = rest.split("→")[0].strip() if "→" in rest else rest
-                    arrow_m = re.search(r'→\s*`?(U\.[A-Za-z]+)`?', rest)
-                    if arrow_m:
-                        concept["parent"] = arrow_m.group(1)
-                    ref_m = re.search(r'(?:см\.\s+)?(\d+\.S\d+\.SS\d+)', rest)
-                    if ref_m:
-                        concept["ref"] = ref_m.group(1)
-                    name = re.split(r'\s+—|\s+\(|\s+\bсм\.', name)[0].strip()
-                    concept["name"] = name
-                    concepts.append(concept)
-                else:
-                    raw.append(f"<unknown-marker:{marker}>")
+            if not m:
+                raw.append(f"<malformed-bullet:{content[:60]}>")
+                i += 1
+                continue
+            marker = m.group(1).strip()
+            rest = m.group(2).strip()
+            if marker not in CONCEPT_MARKERS:
+                raw.append(f"<unknown-marker:{marker}>")
+                i += 1
+                continue
+            concept = {"marker": marker, "raw": content}
+            name = rest.split("→")[0].strip() if "→" in rest else rest
+            # Parent — первый U.* ПОСЛЕ первого `→` (canonical format `имя → U.Type (комментарий)`).
+            # Если `→` нет — ищем во всей строке как fallback (deprecated формат).
+            after_arrow = rest.split("→", 1)[1] if "→" in rest else rest
+            arrow_m = UTYPE_RE.search(after_arrow)
+            if arrow_m:
+                concept["parent"] = arrow_m.group(0)
+            ref_m = re.search(r'(?:см\.\s+)?(\d+\.S\d+\.SS\d+)', rest)
+            if ref_m:
+                concept["ref"] = ref_m.group(1)
+            pack_m = PACK_SOURCE_RE.search(rest)
+            if pack_m:
+                concept["pack_source"] = pack_m.group(0)
+            name = re.split(r'\s+—|\s+\(|\s+\bсм\.', name)[0].strip()
+            concept["name"] = name
+            concepts.append(concept)
             i += 1
             continue
         if not stripped:
@@ -268,6 +300,10 @@ def cmd_structure(args: argparse.Namespace) -> int:
         check_section_ordering(f, sections, findings)
         check_subsection_completeness(f, sections, findings)
         check_concept_format(sections, findings)
+        check_introduces_limit(sections, findings)
+        check_evidence_graph(sections, findings)
+        check_triple_identification(sections, findings)
+        check_cases_in_introduces(sections, findings)
         for sec in sections:
             for sub in sec.subsections:
                 all_subsections_by_guide[sub.guide].append(sub)
@@ -341,14 +377,20 @@ def check_subsection_completeness(file: Path, sections: list[Section], findings:
 
 
 def check_concept_format(sections: list[Section], findings: list[Finding]) -> None:
-    """Формат «Понятия:» — нет `(` в начале имени, маркер из словаря."""
+    """Формат «Понятия:» — нет `(` в начале имени, маркер из словаря, нет malformed-bullet."""
     for sec in sections:
         for sub in sec.subsections:
             for raw_line in sub.raw_concept_lines:
                 if raw_line.startswith("<unknown-marker"):
                     findings.append(Finding(
                         "error", sub.file, sub.line_start,
-                        f"{sub.subsection_id}: неизвестный маркер в «Понятия:» — {raw_line}",
+                        f"{sub.subsection_id}: неизвестный маркер в «Понятия:» — {raw_line}. "
+                        f"Допустимые: {sorted(CONCEPT_MARKERS)}",
+                    ))
+                elif raw_line.startswith("<malformed-bullet"):
+                    findings.append(Finding(
+                        "error", sub.file, sub.line_start,
+                        f"{sub.subsection_id}: строка в «Понятия:» без маркера-двоеточия — {raw_line}",
                     ))
             for concept in sub.concepts:
                 name = concept.get("name", "")
@@ -357,6 +399,94 @@ def check_concept_format(sections: list[Section], findings: list[Finding]) -> No
                         "error", sub.file, sub.line_start,
                         f"{sub.subsection_id}: имя понятия начинается с `(` — парсер сломается: «{name}»",
                     ))
+
+
+def check_introduces_limit(sections: list[Section], findings: list[Finding]) -> None:
+    """A.11 Ontological Parsimony: ≤A11_INTRODUCES_LIMIT понятий «вводится» на подраздел."""
+    for sec in sections:
+        for sub in sec.subsections:
+            intro_count = sum(1 for c in sub.concepts if c.get("marker") == "вводится")
+            if intro_count > A11_INTRODUCES_LIMIT:
+                names = [c.get("name", "?") for c in sub.concepts if c.get("marker") == "вводится"]
+                findings.append(Finding(
+                    "warning", sub.file, sub.line_start,
+                    f"{sub.subsection_id}: вводится {intro_count} понятий (предел A.11 = "
+                    f"{A11_INTRODUCES_LIMIT}). Список: {names}. Раздели на несколько подразделов "
+                    f"или пометь часть как `используется`.",
+                ))
+
+
+def check_evidence_graph(sections: list[Section], findings: list[Finding]) -> None:
+    """A.10 Evidence Graph: каждое «вводится» должно иметь источник Pack (PD.FORM/METHOD/CAT.NNN).
+
+    На этапе перехода — WARN (Pack source отсутствует у ~80% существующих понятий в
+    `01-structure-guide-1.md`). Промоция WARN → FAIL: открыть РП по миграции корпуса,
+    при ≥95% покрытии и установившемся плато 1 неделю поменять severity на `error`.
+    Критерий проверки: `python3 tools/v4-lint.py structure specs/v4-reference/ 2>&1 |
+    grep -c "без источника Pack"` ≤ N (целевое <5 на весь корпус).
+    """
+    for sec in sections:
+        for sub in sec.subsections:
+            for concept in sub.concepts:
+                if concept.get("marker") != "вводится":
+                    continue
+                if not concept.get("pack_source"):
+                    name = concept.get("name", "?")
+                    findings.append(Finding(
+                        "warning", sub.file, sub.line_start,
+                        f"{sub.subsection_id}: «{name}» вводится без источника Pack "
+                        f"(ожидается `(PD.FORM.NNN)` или `(PD.METHOD.NNN)` в строке) — A.10 Evidence Graph.",
+                    ))
+
+
+def check_triple_identification(sections: list[Section], findings: list[Finding]) -> None:
+    """Тройка идентификации: имя + parent U.* + источник Pack — для каждого «вводится».
+
+    Имя отсутствует → FAIL (это аномалия парсинга / некорректная строка).
+    Parent U.* отсутствует → WARN. Pack source отсутствует уже ловится `check_evidence_graph` —
+    не дублируем (избегаем двойного WARN на одну строку).
+    """
+    for sec in sections:
+        for sub in sec.subsections:
+            for concept in sub.concepts:
+                if concept.get("marker") != "вводится":
+                    continue
+                name = (concept.get("name") or "").strip()
+                if not name:
+                    findings.append(Finding(
+                        "error", sub.file, sub.line_start,
+                        f"{sub.subsection_id}: строка `вводится` без имени понятия — "
+                        f"проверь формат.",
+                    ))
+                    continue
+                if not concept.get("parent"):
+                    findings.append(Finding(
+                        "warning", sub.file, sub.line_start,
+                        f"{sub.subsection_id}: «{name}» вводится без `parent U.*` "
+                        f"(ожидается U.System / U.Episteme / U.Method и т.д.).",
+                    ))
+
+
+def check_cases_in_introduces(sections: list[Section], findings: list[Finding]) -> None:
+    """Кейсы и аналогии не должны попадать в `вводится` — это иллюстрации, не понятия."""
+    for sec in sections:
+        for sub in sec.subsections:
+            for concept in sub.concepts:
+                if concept.get("marker") != "вводится":
+                    continue
+                name = (concept.get("name") or "").strip()
+                if not name:
+                    continue
+                lowered = name.lower()
+                for token in KNOWN_CASE_TOKENS:
+                    if token in lowered:
+                        findings.append(Finding(
+                            "error", sub.file, sub.line_start,
+                            f"{sub.subsection_id}: «{name}» зарегистрирован как кейс/аналогия "
+                            f"(07-concept-candidates-v4.md), не должен вводиться как понятие. "
+                            f"Используй маркер `кейс в тексте:` или `аналогия в тексте:`.",
+                        ))
+                        break
 
 
 def check_homonyms(by_guide: dict[int, list[Subsection]], findings: list[Finding]) -> None:
@@ -435,6 +565,13 @@ def check_porter_frontmatter(sub: Subsection, known_ids: set[str], findings: lis
                     "error", sub.file, sub.line_start,
                     f"{sub.subsection_id}: mastery_node «{node}» не из словаря {sorted(VALID_MASTERY_NODES)}",
                 ))
+        if "iwe" in nodes and sub.guide in GUIDES_FORBID_IWE:
+            findings.append(Finding(
+                "error", sub.file, sub.line_start,
+                f"{sub.subsection_id}: mastery_node `iwe` запрещён в руководствах "
+                f"{sorted(GUIDES_FORBID_IWE)} (A.1.1 Bounded Context, "
+                f"WRITING-PIPELINE Этап 4 п.4).",
+            ))
 
     stage = fm.get("stage_relevant")
     if stage:
@@ -608,14 +745,203 @@ def check_pack_drift_in_text(sub: Subsection, known_cp: set[str], known_bh: set[
 
 
 # ============================================================================
+# Subcommand: graph (заменяет упомянутый, но не реализованный build-structure-overview.py)
+# ============================================================================
+
+EDGE_MARKERS = {
+    "используется": "uses",
+    "противопоставлен": "contrast",
+    "сослан": "see-also",
+}
+
+
+def cmd_graph(args: argparse.Namespace) -> int:
+    """Диспетчер подкоманд graph (build / diff). Обёрнут в общий error handler."""
+    return args.graph_func(args)
+
+
+def cmd_graph_build(args: argparse.Namespace) -> int:
+    """Построить концепт-граф из specs/v4-reference/: узлы = «вводится», рёбра = ссылки."""
+    import json
+
+    targets = [Path(p) for p in args.paths]
+    files, findings = collect_structure_files(targets)
+    if not files:
+        return report(findings, label="graph build")
+
+    nodes: dict[str, dict] = {}  # name → {parent, pack_source, guide, subsection_id, mastery_node, stage_relevant}
+    edges: list[dict] = []        # {source: subsection_id, target: concept_name, type: uses/contrast/see-also}
+
+    for f in files:
+        sections, parse_findings = parse_structure_file(f)
+        findings.extend(parse_findings)
+        for sec in sections:
+            for sub in sec.subsections:
+                for concept in sub.concepts:
+                    marker = concept.get("marker")
+                    name = (concept.get("name") or "").strip()
+                    if not name:
+                        continue
+                    if marker == "вводится":
+                        if name in nodes:
+                            # дубликат — оставляем первое, фиксируем как finding
+                            findings.append(Finding(
+                                "warning", sub.file, sub.line_start,
+                                f"граф: понятие «{name}» уже введено в "
+                                f"{nodes[name]['subsection_id']}; повторное введение игнорируется",
+                            ))
+                            continue
+                        nodes[name] = {
+                            "name": name,
+                            "parent": concept.get("parent"),
+                            "pack_source": concept.get("pack_source"),
+                            "guide": sub.guide,
+                            "subsection_id": sub.subsection_id,
+                            "mastery_node": sub.frontmatter.get("mastery_node"),
+                            "stage_relevant": sub.frontmatter.get("stage_relevant"),
+                        }
+                    elif marker in EDGE_MARKERS:
+                        edges.append({
+                            "source": sub.subsection_id,
+                            "target": name,
+                            "type": EDGE_MARKERS[marker],
+                        })
+
+    # Orphan edges: target не существует в nodes
+    orphans = [e for e in edges if e["target"] not in nodes]
+
+    graph = {
+        "schema_version": 1,
+        "generated_by": "v4-lint graph build",
+        "nodes": list(nodes.values()),
+        "edges": edges,
+        "stats": {
+            "node_count": len(nodes),
+            "edge_count": len(edges),
+            "orphan_edges": len(orphans),
+        },
+    }
+
+    out_json = Path(args.out_json) if args.out_json else None
+    out_dot = Path(args.out_dot) if args.out_dot else None
+
+    stdout_holds_json = out_json is None
+    if out_json:
+        out_json.write_text(json.dumps(graph, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"[graph build] JSON → {out_json}  (nodes={len(nodes)}, edges={len(edges)})",
+              file=sys.stderr)
+    else:
+        # JSON в stdout — findings уходят в stderr, чтобы не ломать pipe-потребителей.
+        print(json.dumps(graph, ensure_ascii=False, indent=2))
+
+    if out_dot:
+        out_dot.write_text(_render_dot(graph), encoding="utf-8")
+        print(f"[graph build] DOT  → {out_dot}", file=sys.stderr)
+
+    return report(findings, label="graph build", findings_to_stderr=stdout_holds_json)
+
+
+def _render_dot(graph: dict) -> str:
+    """Минимальный Graphviz DOT-рендер: цвет узла = guide, стиль ребра = type."""
+    lines = ["digraph concept_graph {", "  rankdir=LR;", "  node [shape=box, fontsize=10];"]
+    guide_colors = {1: "lightblue", 2: "lightgreen", 3: "khaki", 4: "salmon"}
+    for node in graph["nodes"]:
+        name = node["name"].replace('"', '\\"')
+        guide = node.get("guide")
+        color = guide_colors.get(guide, "white")
+        label_parts = [name]
+        if node.get("parent"):
+            label_parts.append(node["parent"])
+        if node.get("pack_source"):
+            label_parts.append(node["pack_source"])
+        label = "\\n".join(label_parts).replace('"', '\\"')
+        lines.append(f'  "{name}" [label="{label}", fillcolor="{color}", style=filled];')
+    edge_style = {"uses": "solid", "contrast": "dashed", "see-also": "dotted"}
+    for edge in graph["edges"]:
+        src = edge["source"]
+        tgt = edge["target"].replace('"', '\\"')
+        style = edge_style.get(edge["type"], "solid")
+        lines.append(f'  "{src}" -> "{tgt}" [style={style}, label="{edge["type"]}"];')
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def cmd_graph_diff(args: argparse.Namespace) -> int:
+    """Сравнить два JSON-снимка графа: добавленные/удалённые узлы и рёбра, изменения атрибутов."""
+    import json
+
+    before = Path(args.before)
+    after = Path(args.after)
+    findings: list[Finding] = []
+    if not before.exists():
+        findings.append(Finding("error", before, None, "файл не существует"))
+    if not after.exists():
+        findings.append(Finding("error", after, None, "файл не существует"))
+    if findings:
+        return report(findings, label="graph diff")
+
+    g_before = json.loads(before.read_text(encoding="utf-8"))
+    g_after = json.loads(after.read_text(encoding="utf-8"))
+    nodes_before = {n["name"]: n for n in g_before.get("nodes", [])}
+    nodes_after = {n["name"]: n for n in g_after.get("nodes", [])}
+
+    added_nodes = sorted(set(nodes_after) - set(nodes_before))
+    removed_nodes = sorted(set(nodes_before) - set(nodes_after))
+    changed_nodes: list[tuple[str, str, str, str]] = []
+    for name in sorted(set(nodes_before) & set(nodes_after)):
+        b = nodes_before[name]
+        a = nodes_after[name]
+        for field_name in ("parent", "pack_source", "subsection_id"):
+            if b.get(field_name) != a.get(field_name):
+                changed_nodes.append((name, field_name, str(b.get(field_name)), str(a.get(field_name))))
+
+    # Рёбра: уникальный ключ = (source, target, type).
+    def _edge_key(e: dict) -> tuple[str, str, str]:
+        return (e.get("source", ""), e.get("target", ""), e.get("type", ""))
+
+    edges_before = {_edge_key(e) for e in g_before.get("edges", [])}
+    edges_after = {_edge_key(e) for e in g_after.get("edges", [])}
+    added_edges = sorted(edges_after - edges_before)
+    removed_edges = sorted(edges_before - edges_after)
+
+    print(f"=== graph diff: {before} → {after} ===")
+    print(f"Добавлено узлов: {len(added_nodes)}")
+    for n in added_nodes:
+        print(f"  + {n}")
+    print(f"Удалено узлов: {len(removed_nodes)}")
+    for n in removed_nodes:
+        print(f"  - {n}")
+    print(f"Изменено узлов: {len(changed_nodes)}")
+    for name, field_name, old, new in changed_nodes:
+        print(f"  ~ {name}: {field_name} «{old}» → «{new}»")
+    print(f"Добавлено рёбер: {len(added_edges)}")
+    for src, tgt, etype in added_edges:
+        print(f"  + {src} --{etype}--> {tgt}")
+    print(f"Удалено рёбер: {len(removed_edges)}")
+    for src, tgt, etype in removed_edges:
+        print(f"  - {src} --{etype}--> {tgt}")
+
+    # exit 0 если diff пустой, 1 если есть изменения (полезно для CI «нет дрейфа?»)
+    if added_nodes or removed_nodes or changed_nodes or added_edges or removed_edges:
+        return 1
+    return 0
+
+
+# ============================================================================
 # Отчёт
 # ============================================================================
 
-def report(findings: list[Finding], label: str) -> int:
+def report(findings: list[Finding], label: str, findings_to_stderr: bool = False) -> int:
+    """Печать findings + summary, возврат exit-кода.
+
+    findings_to_stderr=True: findings уходят в stderr (когда stdout занят данными,
+    например JSON-снимком графа). По умолчанию — stdout.
+    """
     errors = [f for f in findings if f.severity == "error"]
     warnings = [f for f in findings if f.severity == "warning"]
+    out_stream = sys.stderr if findings_to_stderr else sys.stdout
     for f in findings:
-        print(f.fmt())
+        print(f.fmt(), file=out_stream)
     summary = f"\n[{label}] errors={len(errors)} warnings={len(warnings)}"
     print(summary, file=sys.stderr)
     if errors:
@@ -650,6 +976,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_drift.add_argument("paths", nargs="+")
     p_drift.add_argument("--pack", help="Путь к PD.FORM.089-learner-rcs.md")
     p_drift.set_defaults(func=cmd_pack_drift)
+
+    p_graph = sub.add_parser("graph", help="Концепт-граф из specs/v4-reference/ (build/diff)")
+    graph_sub = p_graph.add_subparsers(dest="graph_cmd", required=True)
+
+    p_graph_build = graph_sub.add_parser("build", help="Собрать граф (узлы + рёбра)")
+    p_graph_build.add_argument("paths", nargs="+", help="Файлы или директория v4-reference/")
+    p_graph_build.add_argument("--out-json", help="Записать JSON-снимок графа (иначе — stdout)")
+    p_graph_build.add_argument("--out-dot", help="Записать Graphviz DOT для визуализации")
+    p_graph_build.set_defaults(func=cmd_graph, graph_func=cmd_graph_build)
+
+    p_graph_diff = graph_sub.add_parser("diff", help="Сравнить два JSON-снимка графа")
+    p_graph_diff.add_argument("before", help="Старый JSON-снимок")
+    p_graph_diff.add_argument("after", help="Новый JSON-снимок")
+    p_graph_diff.set_defaults(func=cmd_graph, graph_func=cmd_graph_diff)
 
     return parser
 
