@@ -24,14 +24,6 @@ from pathlib import Path
 
 VALID_MASTERY_NODES = {"мыслительное", "саморазвитие", "iwe"}
 VALID_STAGES = {1, 2, 3, 4, 5}
-KNOWN_CP_SLOTS = {
-    "cp.rhy", "cp.wld", "cp.skl", "cp.iwe",
-    "cp.int", "cp.agt", "cp.knw", "cp.auto", "cp.exo",
-}
-KNOWN_BH_METRICS = {
-    "bh.sys", "bh.inv", "bh.met", "bh.awr",
-    "bh.agn", "bh.scl", "bh.stb",
-}
 CONCEPT_MARKERS = {
     "вводится", "используется", "противопоставлен", "сослан",
     "кейс в тексте", "аналогия в тексте",
@@ -86,32 +78,53 @@ class Finding:
 # Парсер
 # ============================================================================
 
+def _coerce_scalar(value: str):
+    value = value.strip().strip('"').strip("'")
+    try:
+        return int(value)
+    except ValueError:
+        return value
+
+
 def parse_yaml_block(block: str) -> dict:
-    """Минимальный YAML-парсер для inline-блоков `subsection_id: ...` / списков."""
+    """YAML-парсер для inline-блоков: `key: value`, `key: [a, b]`, multi-line `- item`."""
     data: dict = {}
-    for raw in block.splitlines():
-        line = raw.rstrip()
-        if not line or line.startswith("#"):
+    lines = block.splitlines()
+    i = 0
+    while i < len(lines):
+        raw = lines[i].rstrip()
+        if not raw or raw.lstrip().startswith("#"):
+            i += 1
             continue
-        m = re.match(r'^([a-z_][a-z0-9_]*)\s*:\s*(.*)$', line)
+        m = re.match(r'^([a-z_][a-z0-9_]*)\s*:\s*(.*)$', raw)
         if not m:
+            i += 1
             continue
         key, value = m.group(1), m.group(2).strip()
         if value.startswith("[") and value.endswith("]"):
             inner = value[1:-1].strip()
-            if not inner:
-                data[key] = []
-            else:
-                items = [x.strip().strip('"').strip("'") for x in inner.split(",")]
-                converted = []
-                for item in items:
-                    try:
-                        converted.append(int(item))
-                    except ValueError:
-                        converted.append(item)
-                data[key] = converted
-        else:
-            data[key] = value.strip('"').strip("'")
+            data[key] = [_coerce_scalar(x) for x in inner.split(",")] if inner else []
+            i += 1
+            continue
+        if not value:
+            items: list = []
+            j = i + 1
+            while j < len(lines):
+                child = lines[j]
+                if not child.strip():
+                    j += 1
+                    continue
+                cm = re.match(r'^(\s+)-\s+(.+)$', child)
+                if cm:
+                    items.append(_coerce_scalar(cm.group(2)))
+                    j += 1
+                    continue
+                break
+            data[key] = items if items else ""
+            i = j
+            continue
+        data[key] = _coerce_scalar(value)
+        i += 1
     return data
 
 
@@ -132,12 +145,10 @@ def parse_concepts_block(lines: list[str], start_idx: int) -> tuple[list[dict], 
                 rest = m.group(2).strip()
                 if marker in CONCEPT_MARKERS:
                     concept = {"marker": marker, "raw": content}
+                    name = rest.split("→")[0].strip() if "→" in rest else rest
                     arrow_m = re.search(r'→\s*`?(U\.[A-Za-z]+)`?', rest)
                     if arrow_m:
                         concept["parent"] = arrow_m.group(1)
-                        name = rest.split("→")[0].strip()
-                    else:
-                        name = rest
                     ref_m = re.search(r'(?:см\.\s+)?(\d+\.S\d+\.SS\d+)', rest)
                     if ref_m:
                         concept["ref"] = ref_m.group(1)
@@ -246,8 +257,9 @@ def parse_pack_form089(path: Path) -> dict:
 
 def cmd_structure(args: argparse.Namespace) -> int:
     targets = [Path(p) for p in args.paths]
-    files = collect_structure_files(targets)
-    findings: list[Finding] = []
+    files, findings = collect_structure_files(targets)
+    if not files:
+        return report(findings, label="structure")
     all_subsections_by_guide: dict[int, list[Subsection]] = defaultdict(list)
 
     for f in files:
@@ -265,15 +277,27 @@ def cmd_structure(args: argparse.Namespace) -> int:
     return report(findings, label="structure")
 
 
-def collect_structure_files(targets: list[Path]) -> list[Path]:
+def collect_structure_files(targets: list[Path], strict: bool = True) -> tuple[list[Path], list[Finding]]:
+    """Собрать structure-guide-N.md из путей. При strict=True пустой результат → Finding(error)."""
     files: list[Path] = []
+    findings: list[Finding] = []
     for t in targets:
+        if not t.exists():
+            findings.append(Finding("error", t, None, f"путь не существует: {t}"))
+            continue
         if t.is_dir():
-            for path in sorted(t.glob("0?-structure-guide-*.md")):
-                files.append(path)
-        elif t.is_file() and t.name.startswith("0") and "structure-guide" in t.name:
+            matches = sorted(t.glob("0?-structure-guide-*.md"))
+            if not matches:
+                findings.append(Finding(
+                    "warning", t, None,
+                    f"в директории нет файлов вида 0?-structure-guide-*.md",
+                ))
+            files.extend(matches)
+        elif t.is_file():
             files.append(t)
-    return files
+    if strict and not files and not findings:
+        findings.append(Finding("error", Path("."), None, "не найдено ни одного файла для проверки"))
+    return files, findings
 
 
 def check_section_ordering(file: Path, sections: list[Section], findings: list[Finding]) -> None:
@@ -371,8 +395,9 @@ PORTER_RECOMMENDED_FIELDS = ["mastery_node", "stage_relevant", "introduces", "us
 
 def cmd_porter(args: argparse.Namespace) -> int:
     targets = [Path(p) for p in args.paths]
-    files = collect_structure_files(targets) if any(t.is_dir() for t in targets) else [Path(p) for p in args.paths]
-    findings: list[Finding] = []
+    files, findings = collect_structure_files(targets)
+    if not files:
+        return report(findings, label="porter")
 
     known_ids: set[str] = set()
     all_subs: list[Subsection] = []
@@ -459,12 +484,13 @@ def check_porter_frontmatter(sub: Subsection, known_ids: set[str], findings: lis
 
 def cmd_cross_guide(args: argparse.Namespace) -> int:
     targets = [Path(p) for p in args.paths]
-    files = collect_structure_files(targets)
-    findings: list[Finding] = []
+    files, findings = collect_structure_files(targets)
+    if not files:
+        return report(findings, label="cross-guide")
 
     introduces_map: dict[str, list[tuple[Path, str]]] = defaultdict(list)
     all_known_ids: set[str] = set()
-    uses_refs: list[tuple[str, str, Path, str]] = []  # (name, ref, file, subsection_id)
+    uses_list: list[tuple[str, Path, str]] = []  # (name, file, subsection_id)
 
     for f in files:
         sections, parse_findings = parse_structure_file(f)
@@ -481,9 +507,7 @@ def cmd_cross_guide(args: argparse.Namespace) -> int:
                     if marker == "вводится":
                         introduces_map[name].append((f, sub.subsection_id))
                     elif marker == "используется":
-                        ref = concept.get("ref")
-                        if ref:
-                            uses_refs.append((name, ref, f, sub.subsection_id))
+                        uses_list.append((name, f, sub.subsection_id))
 
     for name, locations in introduces_map.items():
         if len(locations) > 1:
@@ -493,7 +517,7 @@ def cmd_cross_guide(args: argparse.Namespace) -> int:
                 f"понятие «{name}» вводится {len(locations)}× — должно быть одно определение: [{locs_fmt}]",
             ))
 
-    for name, ref, file, sub_id in uses_refs:
+    for name, file, sub_id in uses_list:
         if name not in introduces_map:
             findings.append(Finding(
                 "warning", file, None,
@@ -509,23 +533,34 @@ def cmd_cross_guide(args: argparse.Namespace) -> int:
 
 def cmd_pack_drift(args: argparse.Namespace) -> int:
     targets = [Path(p) for p in args.paths]
-    files = collect_structure_files(targets)
-    findings: list[Finding] = []
+    files, findings = collect_structure_files(targets)
+    if not files:
+        return report(findings, label="pack-drift")
 
     if args.pack:
-        pack_data = parse_pack_form089(Path(args.pack))
+        pack_path = Path(args.pack)
+        if not pack_path.exists():
+            findings.append(Finding(
+                "error", pack_path, None,
+                f"Pack-файл не найден: {pack_path}",
+            ))
+            return report(findings, label="pack-drift")
+        pack_data = parse_pack_form089(pack_path)
         known_cp = pack_data["cp"]
         known_bh = pack_data["bh"]
         if not known_cp and not known_bh:
             findings.append(Finding(
-                "warning", Path(args.pack), None,
-                "Pack-файл не содержит cp.*/bh.* упоминаний — проверьте путь",
+                "error", pack_path, None,
+                "Pack-файл не содержит cp.*/bh.* упоминаний — проверьте корректность пути",
             ))
-            known_cp = KNOWN_CP_SLOTS
-            known_bh = KNOWN_BH_METRICS
+            return report(findings, label="pack-drift")
     else:
-        known_cp = KNOWN_CP_SLOTS
-        known_bh = KNOWN_BH_METRICS
+        findings.append(Finding(
+            "error", Path("."), None,
+            "pack-drift требует --pack <путь к PD.FORM.089-learner-rcs.md>. "
+            "Семенной словарь не используется как fallback (избегаем silent stale-data).",
+        ))
+        return report(findings, label="pack-drift")
 
     for f in files:
         sections, parse_findings = parse_structure_file(f)

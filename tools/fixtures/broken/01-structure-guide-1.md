@@ -26,9 +26,9 @@ mastery_node: [саморазвитие]
 stage_relevant: [1]
 introduces: ["U.Episteme", "Понятие-Х"]
 uses: []
-prerequisites: [PD.GUIDE.1.S1.SS99]
+prerequisites: [PD.GUIDE.1.S99.SS99]
 can_do:
-  - "Знать понятие Х"
+  - Знать понятие Х без «Могу»
 cp_check: [cp.unknownslot]
 bh_check: [bh.fakemetric]
 ```
@@ -37,6 +37,8 @@ bh_check: [bh.fakemetric]
 - вводится: Понятие-Х → `U.Episteme`
 - неизвестно: Х какая-то метка
 - вводится: (опечатка-в-имени) → `U.System`
+- используется: Сирота-без-определения → `U.Method`
+- сослан: Машина → 1.S2.SS1
 
 **Содержание:** Текст подраздела.
 
