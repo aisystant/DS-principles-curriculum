@@ -1,0 +1,43 @@
+name: v4-lint
+
+on:
+  pull_request:
+    paths:
+      - 'specs/v4-reference/**'
+      - 'tools/v4-lint.py'
+      - 'tools/smoke-test.sh'
+  push:
+    branches: [main]
+    paths:
+      - 'specs/v4-reference/**'
+      - 'tools/v4-lint.py'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: structure (Этап 2)
+        run: python3 tools/v4-lint.py structure specs/v4-reference/
+
+      - name: porter (Этап 8)
+        run: python3 tools/v4-lint.py porter specs/v4-reference/
+
+      - name: cross-guide (Этап 10)
+        run: python3 tools/v4-lint.py cross-guide specs/v4-reference/
+
+      - name: smoke-test (фикстуры)
+        run: bash tools/smoke-test.sh
+
+      # pack-drift (Этап 14) — требует sibling-checkout PACK-personal.
+      # Включается отдельным шагом когда репо PACK-personal будет доступен в CI.
+      # - name: pack-drift (Этап 14)
+      #   run: |
+      #     python3 tools/v4-lint.py pack-drift specs/v4-reference/ \
+      #       --pack ../PACK-personal/pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md
