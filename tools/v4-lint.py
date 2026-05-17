@@ -29,8 +29,10 @@ CONCEPT_MARKERS = {
     "кейс в тексте", "аналогия в тексте",
 }
 
-# A.11 Ontological Parsimony: предел «вводится» на подраздел (FPF A.11, WRITING-PIPELINE §«Распределение понятий»).
-A11_INTRODUCES_LIMIT = 3
+# STRUCT-PARSIMONY (legacy code-side A.11) Ontological Parsimony: предел «вводится» на подраздел (FPF A.11, WRITING-PIPELINE §«Распределение понятий»).
+# NB: CHECKLIST-subsection A.11 — другое правило (формат `prerequisites`). Code-side переименовано в STRUCT-PARSIMONY для устранения коллизии (Ф0.8, 17 мая).
+STRUCT_PARSIMONY_INTRODUCES_LIMIT = 3
+A11_INTRODUCES_LIMIT = STRUCT_PARSIMONY_INTRODUCES_LIMIT  # backwards-compat alias, удалить после миграции внешних потребителей
 
 # A.1.1 Bounded Context: руководства 1-2 не вводят и не упоминают IWE-узел (WRITING-PIPELINE Этап 4 п.4).
 GUIDES_FORBID_IWE = {1, 2}
@@ -56,7 +58,7 @@ UTYPE_RE = re.compile(r"U\.[A-Za-z]+")
 
 @dataclass
 class Subsection:
-    """Распарсенный подраздел из structure-guide-N.md."""
+    """Распарсенный подраздел из structure-guide-N.md ИЛИ одиночного SS-файла."""
     file: Path
     guide: int                    # 1..4
     section: int                  # 1..N
@@ -67,6 +69,7 @@ class Subsection:
     concepts: list[dict] = field(default_factory=list)  # [{marker, name, parent, ref}]
     raw_concept_lines: list[str] = field(default_factory=list)
     line_start: int = 0
+    from_single_ss: bool = False  # True если распарсен через parse_single_subsection (content-файл в aisystant/docs)
 
 
 @dataclass
@@ -266,6 +269,66 @@ def parse_structure_file(path: Path) -> tuple[list[Section], list[Finding]]:
     return sections, findings
 
 
+def parse_single_subsection(path: Path) -> tuple[Subsection | None, list[Finding]]:
+    """Распарсить одиночный SS-файл (например, content в aisystant/docs).
+
+    В отличие от parse_structure_file, здесь frontmatter находится в начале файла
+    (между `---` маркерами), а сам файл = подраздел (без структуры разделов).
+
+    Используется cmd_porter для проверки одиночного SS (CHECKLIST-режим
+    `v4-lint.py porter <ss-file.md>`).
+    """
+    findings: list[Finding] = []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as e:
+        return None, [Finding("error", path, None, f"не могу прочитать файл: {e}")]
+
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None, [Finding(
+            "error", path, 1,
+            f"одиночный SS-файл должен начинаться с frontmatter `---`",
+        )]
+
+    end_idx = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            end_idx = i
+            break
+    if end_idx is None:
+        return None, [Finding(
+            "error", path, 1,
+            "frontmatter не закрыт (нет второго `---`)",
+        )]
+
+    yaml_text = "\n".join(lines[1:end_idx])
+    frontmatter = parse_yaml_block(yaml_text)
+
+    subsection_id = frontmatter.get("subsection_id", "")
+    guide_num = 0
+    section_num = 0
+    order = 0
+    m = SUBSECTION_ID_RE.search(subsection_id)
+    if m:
+        guide_num = int(m.group(1))
+        section_num = int(m.group(2))
+        order = int(m.group(3))
+
+    sub = Subsection(
+        file=path,
+        guide=guide_num,
+        section=section_num,
+        order=order,
+        subsection_id=subsection_id,
+        title=frontmatter.get("title", ""),
+        frontmatter=frontmatter,
+        line_start=1,
+        from_single_ss=True,
+    )
+    return sub, findings
+
+
 def parse_pack_form089(path: Path) -> dict:
     """Извлечь множество валидных cp.* / bh.* из FORM.089."""
     try:
@@ -402,22 +465,27 @@ def check_concept_format(sections: list[Section], findings: list[Finding]) -> No
 
 
 def check_introduces_limit(sections: list[Section], findings: list[Finding]) -> None:
-    """A.11 Ontological Parsimony: ≤A11_INTRODUCES_LIMIT понятий «вводится» на подраздел."""
+    """STRUCT-PARSIMONY (legacy code A.11): ≤STRUCT_PARSIMONY_INTRODUCES_LIMIT понятий «вводится» на подраздел.
+
+    NB: CHECKLIST-subsection A.11 — другое правило (формат `prerequisites`). Не путать.
+    """
     for sec in sections:
         for sub in sec.subsections:
             intro_count = sum(1 for c in sub.concepts if c.get("marker") == "вводится")
-            if intro_count > A11_INTRODUCES_LIMIT:
+            if intro_count > STRUCT_PARSIMONY_INTRODUCES_LIMIT:
                 names = [c.get("name", "?") for c in sub.concepts if c.get("marker") == "вводится"]
                 findings.append(Finding(
                     "warning", sub.file, sub.line_start,
-                    f"{sub.subsection_id}: вводится {intro_count} понятий (предел A.11 = "
-                    f"{A11_INTRODUCES_LIMIT}). Список: {names}. Раздели на несколько подразделов "
+                    f"{sub.subsection_id}: вводится {intro_count} понятий (предел STRUCT-PARSIMONY = "
+                    f"{STRUCT_PARSIMONY_INTRODUCES_LIMIT}). Список: {names}. Раздели на несколько подразделов "
                     f"или пометь часть как `используется`.",
                 ))
 
 
 def check_evidence_graph(sections: list[Section], findings: list[Finding]) -> None:
-    """A.10 Evidence Graph: каждое «вводится» должно иметь источник Pack (PD.FORM/METHOD/CAT.NNN).
+    """STRUCT-EVIDENCE (legacy code A.10): каждое «вводится» должно иметь источник Pack (PD.FORM/METHOD/CAT.NNN).
+
+    NB: CHECKLIST-subsection A.10 — другое правило (шифры Pack в frontmatter `introduces`). Не путать.
 
     На этапе перехода — WARN (Pack source отсутствует у ~80% существующих понятий в
     `01-structure-guide-1.md`). Промоция WARN → FAIL: открыть РП по миграции корпуса,
@@ -435,7 +503,7 @@ def check_evidence_graph(sections: list[Section], findings: list[Finding]) -> No
                     findings.append(Finding(
                         "warning", sub.file, sub.line_start,
                         f"{sub.subsection_id}: «{name}» вводится без источника Pack "
-                        f"(ожидается `(PD.FORM.NNN)` или `(PD.METHOD.NNN)` в строке) — A.10 Evidence Graph.",
+                        f"(ожидается `(PD.FORM.NNN)` или `(PD.METHOD.NNN)` в строке) — STRUCT-EVIDENCE.",
                     ))
 
 
@@ -524,21 +592,59 @@ PORTER_RECOMMENDED_FIELDS = ["mastery_node", "stage_relevant", "introduces", "us
 
 
 def cmd_porter(args: argparse.Namespace) -> int:
+    """Этап 8: проверка frontmatter подразделов.
+
+    Поддерживает два режима:
+      1. Structure-mode: путь — директория или файл `*structure-guide-*.md`.
+         Парсятся все подразделы внутри structure-guide → cross-check prereq.
+      2. Single-SS-mode: путь — одиночный SS-файл (например, content в aisystant/docs).
+         Файл начинается с frontmatter `---`. Cross-check prereq не делается
+         (нет реестра known_ids в одном файле).
+    """
     targets = [Path(p) for p in args.paths]
-    files, findings = collect_structure_files(targets)
-    if not files:
-        return report(findings, label="porter")
+
+    structure_targets: list[Path] = []
+    single_ss_files: list[Path] = []
+    findings: list[Finding] = []
+
+    for t in targets:
+        if not t.exists():
+            findings.append(Finding("error", t, None, f"путь не существует: {t}"))
+            continue
+        if t.is_dir():
+            structure_targets.append(t)
+        elif t.is_file():
+            if re.search(r"0?\d?-?structure-guide-", t.name):
+                structure_targets.append(t)
+            else:
+                single_ss_files.append(t)
 
     known_ids: set[str] = set()
     all_subs: list[Subsection] = []
-    for f in files:
-        sections, parse_findings = parse_structure_file(f)
+
+    if structure_targets:
+        files, collect_findings = collect_structure_files(structure_targets)
+        findings.extend(collect_findings)
+        for f in files:
+            sections, parse_findings = parse_structure_file(f)
+            findings.extend(parse_findings)
+            for sec in sections:
+                for sub in sec.subsections:
+                    if sub.subsection_id:
+                        known_ids.add(sub.subsection_id)
+                    all_subs.append(sub)
+
+    for ss_path in single_ss_files:
+        sub, parse_findings = parse_single_subsection(ss_path)
         findings.extend(parse_findings)
-        for sec in sections:
-            for sub in sec.subsections:
-                if sub.subsection_id:
-                    known_ids.add(sub.subsection_id)
-                all_subs.append(sub)
+        if sub is not None:
+            if sub.subsection_id:
+                known_ids.add(sub.subsection_id)
+            all_subs.append(sub)
+
+    if not all_subs and not findings:
+        findings.append(Finding("error", Path("."), None, "не найдено ни одного файла для проверки"))
+        return report(findings, label="porter")
 
     for sub in all_subs:
         check_porter_frontmatter(sub, known_ids, findings)
@@ -549,21 +655,41 @@ def cmd_porter(args: argparse.Namespace) -> int:
 def check_porter_frontmatter(sub: Subsection, known_ids: set[str], findings: list[Finding]) -> None:
     fm = sub.frontmatter
 
+    # Auxiliary detection (нужно знать ДО PORTER_REQUIRED_FIELDS check — у aux другие требования).
+    # Защищаемся от хрупкого endswith: точный regex по концу subsection_id.
+    fmt_ver = fm.get("format_version")
+    if isinstance(fmt_ver, str):
+        fmt_ver_str = fmt_ver.strip().lower()
+        # null/false как явное «нет значения» → трактуем как отсутствие.
+        if fmt_ver_str in ("", "null", "none", "false"):
+            fmt_ver = None
+        else:
+            fmt_ver = fmt_ver.strip()
+    aux_id_re = re.compile(r"\.SS(0?8|0?9|10|11)$")
+    is_aux = fmt_ver == "4.1-aux" or (sub.subsection_id and aux_id_re.search(sub.subsection_id) is not None)
+
+    # PORTER_REQUIRED_FIELDS — обязательны для main-подразделов. Auxiliary освобождены от cp_check/bh_check.
     for field_name in PORTER_REQUIRED_FIELDS:
+        if field_name in ("cp_check", "bh_check") and is_aux:
+            continue
         if field_name not in fm or fm[field_name] in (None, "", []):
             findings.append(Finding(
                 "error", sub.file, sub.line_start,
                 f"{sub.subsection_id or '<no-id>'}: отсутствует обязательное поле `{field_name}`",
             ))
 
-    # format_version check (legacy → v4 migration)
-    fmt_ver = fm.get("format_version")
+    # B.9 — отсутствие format_version.
+    # CHECKLIST v1.1 §B.9: «FAIL если отсутствует в main; WARN в auxiliary».
+    # Архитектурное различение: B.9 как FAIL применяется ТОЛЬКО к одиночным SS-файлам (content в aisystant/docs).
+    # В structure-guide-N.md frontmatter подразделов — упрощённый онтологический контракт без content-полей;
+    # отсутствие format_version там — WARN (миграция корпуса = отдельный РП Ф0.9).
+    b9_severity_missing = "error" if (sub.from_single_ss and not is_aux) else "warning"
     if not fmt_ver:
         findings.append(Finding(
-            "warning", sub.file, sub.line_start,
-            f"{sub.subsection_id or '<no-id>'}: отсутствует `format_version`. "
-            f"Добавь `format_version: 4.1` (main) или `4.1-aux` (auxiliary). "
-            f"Legacy-подразделы получают WARN, через 2 недели → FAIL.",
+            b9_severity_missing,
+            sub.file, sub.line_start,
+            f"{sub.subsection_id or '<no-id>'}: отсутствует `format_version` (B.9). "
+            f"Добавь `format_version: 4.1` (main) или `4.1-aux` (auxiliary).",
         ))
     elif fmt_ver not in ("4.1", "4.1-aux"):
         findings.append(Finding(
@@ -572,8 +698,16 @@ def check_porter_frontmatter(sub: Subsection, known_ids: set[str], findings: lis
             f"Ожидается 4.1 или 4.1-aux.",
         ))
 
-    # Auxiliary subsections (.08-.11) skip concept-related checks
-    is_aux = fmt_ver == "4.1-aux" or (sub.subsection_id and sub.subsection_id.endswith((".SS8", ".SS9", ".SS10", ".SS11")))
+    # B.9 — остальные 5 mandatory meta-полей (только для single-SS-mode, main подразделы).
+    # В structure-guide-N.md этих полей нет по дизайну (skeleton без content-метаданных).
+    if sub.from_single_ss and not is_aux:
+        for meta_field in ("time_reading", "time_practice", "word_count_target", "status", "wp"):
+            value = fm.get(meta_field)
+            if value is None or value == "" or value == []:
+                findings.append(Finding(
+                    "error", sub.file, sub.line_start,
+                    f"{sub.subsection_id or '<no-id>'}: отсутствует обязательное meta-поле `{meta_field}` (B.9).",
+                ))
 
     mastery = fm.get("mastery_node")
     if mastery:
@@ -613,26 +747,61 @@ def check_porter_frontmatter(sub: Subsection, known_ids: set[str], findings: lis
                         f"{sub.subsection_id}: can_do элемент не начинается с «Могу»: «{item[:60]}»",
                     ))
 
-        introduces = fm.get("introduces", [])
-        if isinstance(introduces, list):
-            for name in introduces:
-                if isinstance(name, str) and name.startswith("U."):
-                    findings.append(Finding(
-                        "error", sub.file, sub.line_start,
-                        f"{sub.subsection_id}: в `introduces` указан U.*-тип «{name}» — должно быть каноническое имя",
-                    ))
-
-    prereqs = fm.get("prerequisites", [])
-    if isinstance(prereqs, list):
-        for ref in prereqs:
-            if not isinstance(ref, str):
+        introduces_raw = fm.get("introduces", [])
+        # Нормализация bare-scalar → list: автор мог написать `introduces: PD.FORM.089`
+        # вместо `introduces: [PD.FORM.089]`. Без нормализации обе ветки A.10 пропускаются (false-green).
+        introduces = introduces_raw if isinstance(introduces_raw, list) else (
+            [introduces_raw] if introduces_raw not in (None, "") else []
+        )
+        for name in introduces:
+            if not isinstance(name, str):
                 continue
-            m = SUBSECTION_ID_RE.search(ref)
-            if m and known_ids and ref not in known_ids:
+            if name.startswith("U."):
                 findings.append(Finding(
-                    "warning", sub.file, sub.line_start,
-                    f"{sub.subsection_id}: prerequisite «{ref}» не найден среди известных подразделов",
+                    "error", sub.file, sub.line_start,
+                    f"{sub.subsection_id}: в `introduces` указан U.*-тип «{name}» — должно быть каноническое имя",
                 ))
+            # A.10 (CHECKLIST-side): шифры Pack в frontmatter `introduces` запрещены.
+            # introduces должен содержать только канонические имена понятий, не Pack-источники.
+            # IGNORECASE покрывает typos: `pd.form.089`, `Pd.Method.001`.
+            if re.search(r"\bPD\.(?:FORM|METHOD|CAT)\.\d+", name, re.IGNORECASE):
+                findings.append(Finding(
+                    "error", sub.file, sub.line_start,
+                    f"{sub.subsection_id}: в `introduces` запрещены шифры Pack «{name}» "
+                    f"(PD.FORM/METHOD/CAT.NNN) — это источник, не имя понятия (A.10).",
+                ))
+            # RCS-индексы (cp.* / bh.*) — широкий regex: латинские буквы (любой кейс),
+            # цифры, подчёркивание после `cp.` / `bh.`.
+            if re.search(r"\b(?:cp|bh)\.[A-Za-z][A-Za-z0-9_]*", name, re.IGNORECASE):
+                findings.append(Finding(
+                    "error", sub.file, sub.line_start,
+                    f"{sub.subsection_id}: в `introduces` запрещены RCS-индексы «{name}» "
+                    f"(cp.* / bh.*) — это слот, не имя понятия (A.10).",
+                ))
+
+    # A.11 (CHECKLIST-side): формат `prerequisites` — только PD.GUIDE.N.SX.SSY, не §X.YY.
+    # Нормализация bare-scalar → list (защита от false-green как в A.10).
+    prereqs_raw = fm.get("prerequisites", [])
+    prereqs = prereqs_raw if isinstance(prereqs_raw, list) else (
+        [prereqs_raw] if prereqs_raw not in (None, "") else []
+    )
+    for ref in prereqs:
+        if not isinstance(ref, str):
+            continue
+        # `§` в любом месте строки — индикатор legacy-формата (включая `см. §1.05`).
+        if "§" in ref:
+            findings.append(Finding(
+                "error", sub.file, sub.line_start,
+                f"{sub.subsection_id}: prerequisite «{ref}» содержит legacy-маркер `§` — "
+                f"требуется чистый ID `PD.GUIDE.N.SX.SSY` (A.11).",
+            ))
+            continue
+        m = SUBSECTION_ID_RE.search(ref)
+        if m and known_ids and ref not in known_ids:
+            findings.append(Finding(
+                "warning", sub.file, sub.line_start,
+                f"{sub.subsection_id}: prerequisite «{ref}» не найден среди известных подразделов",
+            ))
 
 
 # ============================================================================

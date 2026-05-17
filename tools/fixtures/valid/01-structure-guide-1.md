@@ -21,6 +21,7 @@ bh_check: [bh.awr]
 
 ```yaml
 subsection_id: PD.GUIDE.1.S1.SS1
+format_version: 4.1
 title: "Первый подраздел"
 mastery_node: [саморазвитие]
 stage_relevant: [1, 2]
@@ -47,6 +48,7 @@ bottleneck_hint: "Если застрял — проверь cp.wld"
 
 ```yaml
 subsection_id: PD.GUIDE.1.S1.SS2
+format_version: 4.1
 title: "Второй подраздел"
 mastery_node: [мыслительное]
 stage_relevant: [2, 3]
@@ -85,6 +87,7 @@ bh_check: [bh.inv]
 
 ```yaml
 subsection_id: PD.GUIDE.1.S2.SS1
+format_version: 4.1
 title: "Подраздел второго раздела"
 mastery_node: [саморазвитие]
 stage_relevant: [3]

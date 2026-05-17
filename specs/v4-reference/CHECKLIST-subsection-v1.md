@@ -1,9 +1,10 @@
 ---
 id: PD-GUIDE-V4-CHECKLIST-SUBSECTION-v1
-title: "Чек-лист содержательной проверки подраздела (SS) — версия 1"
+title: "Чек-лист содержательной проверки подраздела (SS) — версия 1.2"
 status: draft
 created: 2026-05-17
 renamed_from: CHECKLIST-v1.md
+merged_from: CHECKLIST-v1.md@bf7fdfe (peer-merge Ф0.8, 17 мая 2026)
 upstream: [WP-322, PD.FORM.103, CHECKLIST-section-v1, CHECKLIST-guide-v1, CD-PIPELINE.md]
 applies_to: подраздел руководства (SS1, SS2, ... SSM внутри одного раздела S)
 ---
@@ -43,8 +44,8 @@ python3 tools/v4-lint.py structure specs/v4-reference/
 - [ ] **A.4 Нет unknown маркеров:** строка без `:` или неизвестный маркер → FAIL
 - [ ] **A.5 Формат «Понятия:»:** имя не начинается с `(`
 - [ ] **A.6 Тройка идентификации:** каждое «вводится» имеет имя + parent U.*
-- [ ] **A.7 Онтологическая бережливость (A.11):** ≤3 «вводится» на подраздел (WARN на 4+, FAIL на 6+)
-- [ ] **A.8 Evidence Graph (A.10):** каждое «вводится» имеет источник Pack `(PD.FORM/METHOD/CAT.NNN)` — WARN если нет
+- [ ] **A.7 Онтологическая бережливость (STRUCT-PARSIMONY):** ≤3 «вводится» на подраздел (WARN на 4+, FAIL на 6+)
+- [ ] **A.8 Evidence Graph (STRUCT-EVIDENCE):** каждое «вводится» имеет источник Pack `(PD.FORM/METHOD/CAT.NNN)` — WARN если нет
 - [ ] **A.9 Кейс в introduces:** нет имён собственных в «вводится» (Земмельвейс, Хохланд — FAIL)
 - [ ] **A.10 Шифры Pack в `introduces`:** запрещены `PD.FORM.NNN`, `PD.METHOD.NNN`, `cp.*`, `bh.*` внутри значений `introduces` — FAIL
 - [ ] **A.11 Формат `prerequisites`:** только `PD.GUIDE.N.SX.SSY`. `§X.YY` → FAIL
@@ -134,7 +135,7 @@ format_version: 4.1-aux
 
 > Агент читает текст и применяет семантические критерии. Требует context isolation: агент видит только результат, не процесс создания.
 >
-> **Метод:** Claude Code с файлом подраздела + этим чек-листом. Или `claude-code --file <подраздел.md>` с инструкцией «проверь по CHECKLIST-v1.md §🟡».
+> **Метод:** Claude Code с файлом подраздела + этим чек-листом. Или `claude-code --file <подраздел.md>` с инструкцией «проверь по CHECKLIST-subsection-v1.md §🟡».
 
 ### 🟡 G. Границы понятий (A.6 Boundary Discipline)
 
@@ -249,7 +250,7 @@ jobs:
     steps:
       - name: 🟡 Агент-проверка (субагент Claude)
         # Вызывается вручную или через claude-code в CI
-        run: echo "Требует Claude API — см. CHECKLIST-v1.md §🟡"
+        run: echo "Требует Claude API — см. CHECKLIST-subsection-v1.md §🟡"
 ```
 
 ---
@@ -260,6 +261,7 @@ jobs:
 |--------|------|----------------|
 | v1.0 | 2026-05-17 | Первая версия: 🔴 (v4-lint) + 🟡 (агент) + 🟢 (пилот). Машина = 8 блоков, Агент = 6 блоков, Пилот = 6 критериев |
 | v1.1 | 2026-05-17 | Добавлены A.10, A.11, A.12, B.9, F.4, H.4, I.3, J.4, K.4, раздел Auxiliary-подразделов, format_version |
+| v1.2 | 2026-05-17 | Ф0.8 peer-merge: устранён `CHECKLIST-v1.md` (osирoтел), disambiguate code-side кодов: legacy `A.10` Evidence Graph → `STRUCT-EVIDENCE`, legacy `A.11` Ontological Parsimony → `STRUCT-PARSIMONY` (избегает коллизии с CHECKLIST-side A.10/A.11) |
 
 **Следующая версия (v2):**
 - Добавить метрики (время чтения, % завершения)
