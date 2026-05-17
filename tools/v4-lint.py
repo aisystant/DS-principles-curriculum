@@ -1819,6 +1819,20 @@ def cmd_guide(args: argparse.Namespace) -> int:
     # но проверки оперируют объединённой коллекцией sections.
     structure_file = structure_files_for_guide[0]
 
+    # Subagent-review FIX (В5): защита от multi-file shard дубликатов.
+    # Если два structure-файла содержат `## Раздел 6` для guide=N, extend создаст
+    # два Section с одинаковым .section — все последующие проверки увидят дубликат.
+    section_nums = [s.section for s in guide_sections]
+    if len(section_nums) != len(set(section_nums)):
+        from collections import Counter
+        dup_nums = [n for n, cnt in Counter(section_nums).items() if cnt > 1]
+        findings.append(Finding(
+            "error", structure_file, None,
+            f"PD.GUIDE.{g}: дублирующиеся разделы между файлами structure: "
+            f"S{dup_nums}. Должен быть один источник правды на guide.",
+        ))
+        return report(findings, label=f"guide PD.GUIDE.{g}")
+
     # A.1 — полнота разделов
     check_guide_section_completeness(structure_file, g, guide_sections, findings)
     # A.2 (delegated) — полнота SS в каждом разделе
