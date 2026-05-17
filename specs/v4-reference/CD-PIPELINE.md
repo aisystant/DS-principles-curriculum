@@ -22,7 +22,7 @@ upstream: [WP-321, WP-300]
 | **Входы** | `structure-guide-N.md` (структура) + `PACK-personal/ontology.md` (понятия) + `role-prefixes.md` (дуга нарратива) + `PD.FORM.089` (метрики) + опционально draft текста подраздела |
 | **Выходы** | (1) Build: собранный markdown подраздела в staging; (2) Validation: PASS/FAIL по 4 этапам v4-lint; (3) Pack-drift: список расхождений после смены Pack; (4) Promote: merge staging → prod после 3/3 пилот-теста |
 | **Время отклика** | ≤2 мин от коммита до finish CI; ≤15 мин до build draft в staging; ≤30 мин до уведомления пилота; ≤7 дней до prod (зависит от пилот-теста) |
-| **Инвариант** | Ни один подраздел не попадает в `docs/ru/personal-new/` без: (а) PASS всех 4 v4-lint валидаторов + FPF (Ф10); (б) PASS субагент-ревью (Этап 9 WRITING-PIPELINE); (в) 6/6 от ≥3 пилотов (Этап 11). Hotfix-исключение: typo-only с тегом `[hotfix]` — только pre-commit + auto-merge |
+| **Инвариант** | Ни один подраздел не попадает в `docs/ru/personal-new/` без: (а) **Pack-sufficiency** (все понятия `introduces` есть в `PACK-personal/ontology.md` §2 + имеют Pack-источник `PD.FORM/METHOD/CAT.NNN` — `v4-lint structure --strict-pack`, см. PD.FORM.103 Этап 3.5 + WRITING-PIPELINE §1.5); (б) PASS всех 4 v4-lint валидаторов (structure, porter, cross-guide, pack-drift) + FPF (Ф10); (в) PASS субагент-ревью (Этап 9 WRITING-PIPELINE); (г) 6/6 от ≥3 пилотов (Этап 11). Hotfix-исключение: typo-only с тегом `[hotfix]` — только pre-commit + auto-merge, но Pack-sufficiency (а) обязательна и для hotfix |
 | **Режим отказа** | FAIL build/lint → GitHub issue автору с диагностикой; FAIL pilot → откат в staging с тегом `needs-rework`; Pack-drift → issue с местами, требующими обновления, без блокировки текущей работы |
 
 ---

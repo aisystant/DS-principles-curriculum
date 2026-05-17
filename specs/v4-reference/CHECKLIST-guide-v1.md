@@ -61,6 +61,14 @@ python3 tools/v4-lint.py graph build --scope guide <guide-id> --out-json /tmp/gu
 - [ ] **C.2 Связность:** ≥80% понятий имеют ≥1 входящее или исходящее ребро (нет «островов»)
 - [ ] **C.3 Соответствие prerequisites:** каждый `prerequisites` в SS существует ДО SS в порядке чтения
 
+> **Быстрая диагностика только prereq-графа** (C.1 + C.3 без других правил):
+>
+> ```bash
+> python3 tools/v4-lint.py prerequisites-graph --scope guide --id <guide-id> specs/v4-reference/
+> ```
+>
+> Полезно после bulk-fix prerequisites — формат вывода циклов компактный, с общим префиксом узлов (например, `SS2 → SS3 → SS2 (length 2, in PD.GUIDE.1.S1)`).
+
 ### 🔴 D. Pack-drift (для руководства целиком)
 
 ```bash

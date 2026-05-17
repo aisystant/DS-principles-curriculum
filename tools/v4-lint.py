@@ -358,6 +358,7 @@ def cmd_structure(args: argparse.Namespace) -> int:
         return report(findings, label="structure")
     all_subsections_by_guide: dict[int, list[Subsection]] = defaultdict(list)
 
+    strict_pack = getattr(args, "strict_pack", False)
     for f in files:
         sections, parse_findings = parse_structure_file(f)
         findings.extend(parse_findings)
@@ -365,7 +366,7 @@ def cmd_structure(args: argparse.Namespace) -> int:
         check_subsection_completeness(f, sections, findings)
         check_concept_format(sections, findings)
         check_introduces_limit(sections, findings)
-        check_evidence_graph(sections, findings)
+        check_evidence_graph(sections, findings, strict_pack=strict_pack)
         check_triple_identification(sections, findings)
         check_cases_in_introduces(sections, findings)
         for sec in sections:
@@ -483,17 +484,25 @@ def check_introduces_limit(sections: list[Section], findings: list[Finding]) -> 
                 ))
 
 
-def check_evidence_graph(sections: list[Section], findings: list[Finding]) -> None:
+def check_evidence_graph(sections: list[Section], findings: list[Finding], strict_pack: bool = False) -> None:
     """STRUCT-EVIDENCE (legacy code A.10): каждое «вводится» должно иметь источник Pack (PD.FORM/METHOD/CAT.NNN).
 
     NB: CHECKLIST-subsection A.10 — другое правило (шифры Pack в frontmatter `introduces`). Не путать.
 
-    На этапе перехода — WARN (Pack source отсутствует у ~80% существующих понятий в
-    `01-structure-guide-1.md`). Промоция WARN → FAIL: открыть РП по миграции корпуса,
-    при ≥95% покрытии и установившемся плато 1 неделю поменять severity на `error`.
-    Критерий проверки: `python3 tools/v4-lint.py structure specs/v4-reference/ 2>&1 |
-    grep -c "без источника Pack"` ≤ N (целевое <5 на весь корпус).
+    Severity-режим (Ф0.14, 17 мая 2026):
+    - **default — WARN** (миграционный режим): Pack source отсутствует у ~80% существующих понятий
+      `01-structure-guide-1.md`; жёсткое FAIL сломает CI до завершения миграции корпуса.
+    - **`--strict-pack` → FAIL** (Pack-sufficiency gate): когда автор сознательно проверяет
+      готовность подраздела к письму (см. PD.FORM.103 Этап 3.5 + WRITING-PIPELINE §1.5
+      «Pack-first»). CHECKLIST-subsection §🔴 A.8 декларирует это как FAIL — флаг
+      выравнивает severity с чек-листом по запросу.
+
+    Промоция default → FAIL: открыть РП по миграции корпуса; при ≥95% покрытии и
+    установившемся плато 1 неделю поменять default на `True`. Критерий проверки:
+    `python3 tools/v4-lint.py structure specs/v4-reference/ 2>&1 | grep -c "без источника Pack"` ≤ N
+    (целевое <5 на весь корпус).
     """
+    severity = "error" if strict_pack else "warning"
     for sec in sections:
         for sub in sec.subsections:
             for concept in sub.concepts:
@@ -502,9 +511,9 @@ def check_evidence_graph(sections: list[Section], findings: list[Finding]) -> No
                 if not concept.get("pack_source"):
                     name = concept.get("name", "?")
                     findings.append(Finding(
-                        "warning", sub.file, sub.line_start,
+                        severity, sub.file, sub.line_start,
                         f"{sub.subsection_id}: «{name}» вводится без источника Pack "
-                        f"(ожидается `(PD.FORM.NNN)` или `(PD.METHOD.NNN)` в строке) — STRUCT-EVIDENCE.",
+                        f"(ожидается `(PD.FORM.NNN)` или `(PD.METHOD.NNN)` в строке) — STRUCT-EVIDENCE / A.8.",
                     ))
 
 
@@ -1333,6 +1342,50 @@ def check_section_ss_parent_alignment(file: Path, section: Section, findings: li
             ))
 
 
+def _format_cycle(cycle: list[str]) -> str:
+    """Компактное представление цикла prerequisites для диагностики (Ф3.10 L2).
+
+    Цикл хранится как `[A, B, ..., A]` — start-узел повторён в конце для замыкания.
+
+    Стратегия:
+    1. Найти общий префикс `PD.GUIDE.N` или `PD.GUIDE.N.SX` среди узлов.
+    2. Срезать префикс, оставив минимально различающую часть (SS-номер
+       внутри одного раздела, или S.SS — внутри одного гайда).
+    3. Длина цикла = число уникальных узлов (не включая повтор start в конце).
+    4. Если общий префикс есть — показать «короткий» путь + ` (length N, in <prefix>)`.
+       Если нет — fallback на полный путь.
+
+    Примеры:
+      [PD.GUIDE.1.S1.SS2, PD.GUIDE.1.S1.SS3, PD.GUIDE.1.S1.SS2]
+        → "SS2 → SS3 → SS2 (length 2, in PD.GUIDE.1.S1)"
+      [PD.GUIDE.1.S1.SS2, PD.GUIDE.1.S2.SS1, PD.GUIDE.1.S1.SS2]
+        → "S1.SS2 → S2.SS1 → S1.SS2 (length 2, in PD.GUIDE.1)"
+    """
+    if not cycle:
+        return ""
+    length = len(cycle) - 1 if len(cycle) > 1 and cycle[0] == cycle[-1] else len(cycle)
+
+    section_prefixes = set()
+    guide_prefixes = set()
+    for node in cycle:
+        m = re.match(r"^(PD\.GUIDE\.\d+\.S\d+)\.SS\d+$", node)
+        if m:
+            section_prefixes.add(m.group(1))
+            guide_prefixes.add(m.group(1).rsplit(".", 1)[0])
+        else:
+            return f"{' → '.join(cycle)} (length {length})"
+
+    if len(section_prefixes) == 1:
+        prefix = next(iter(section_prefixes))
+        short = [node[len(prefix) + 1:] for node in cycle]
+        return f"{' → '.join(short)} (length {length}, in {prefix})"
+    if len(guide_prefixes) == 1:
+        prefix = next(iter(guide_prefixes))
+        short = [node[len(prefix) + 1:] for node in cycle]
+        return f"{' → '.join(short)} (length {length}, in {prefix})"
+    return f"{' → '.join(cycle)} (length {length})"
+
+
 def _detect_prereq_cycles(graph: dict[str, list[str]]) -> list[list[str]]:
     """Итеративный DFS cycle detection. Возвращает список циклов.
 
@@ -1470,7 +1523,7 @@ def check_section_prerequisites_graph(
     for cycle in cycles:
         findings.append(Finding(
             "error", file, None,
-            f"S{section.section}: цикл prerequisites: {' → '.join(cycle)} (B.2)",
+            f"S{section.section}: цикл prerequisites: {_format_cycle(cycle)} (B.2)",
         ))
 
 
@@ -1736,7 +1789,7 @@ def check_guide_prereq_acyclic_and_order(
     for cycle in cycles:
         findings.append(Finding(
             "error", file, None,
-            f"Guide {guide_num}: цикл prerequisites: {' → '.join(cycle)} (C.1)",
+            f"Guide {guide_num}: цикл prerequisites: {_format_cycle(cycle)} (C.1)",
         ))
 
 
@@ -1894,10 +1947,51 @@ def cmd_guide(args: argparse.Namespace) -> int:
 # ----------------------------------------------------------------------------
 
 def cmd_prerequisites_graph(args: argparse.Namespace) -> int:
-    """Отдельная проверка графа prerequisites. --scope section | guide + --id <id>.
+    """Автономная проверка графа prerequisites без полного guide/section прохода.
 
-    Делегирует логику в check_section_prerequisites_graph (section)
-    или check_guide_prereq_acyclic_and_order (guide). Возвращает FAIL если есть error-finding.
+    Назначение: быстрая диагностика только B.1-B.3 (section) или C.1+C.3 (guide)
+    без overhead остальных правил (A.*, B.4, D.* и т.д.). Полезно когда
+    автор правит prerequisites и хочет видеть ТОЛЬКО ошибки графа, не другой noise.
+
+    Режимы:
+      --scope section --id PD.GUIDE.<N>.S<X>
+        → check_section_prerequisites_graph:
+          B.1 prereq внутри раздела разрешаются
+          B.2 нет циклов
+          B.3 cross-section prereq помечен с корректным S-префиксом
+        Дополнительно: если файлов структуры >1, собирается known_ids_all со
+        всех файлов — cross-section prereq на несуществующий SS ловится как FAIL.
+
+      --scope guide --id PD.GUIDE.<N> (или N)
+        → check_guide_prereq_acyclic_and_order:
+          C.1 ациклический guide-уровня граф prerequisites
+          C.3 prereq идёт ДО потребителя в порядке чтения (по (section, order))
+
+    Примеры:
+      # Только prereq-граф S1 в Руководстве 1
+      python3 tools/v4-lint.py prerequisites-graph \\
+        --scope section --id PD.GUIDE.1.S1 specs/v4-reference/
+
+      # Только prereq-граф всего Руководства 2
+      python3 tools/v4-lint.py prerequisites-graph \\
+        --scope guide --id 2 specs/v4-reference/
+
+      # Шорткат через PD.GUIDE.<N>
+      python3 tools/v4-lint.py prerequisites-graph \\
+        --scope guide --id PD.GUIDE.2 specs/v4-reference/
+
+    Возвращает FAIL (exit 1) если в графе есть хотя бы одна error-finding;
+    PASS (exit 0) иначе.
+
+    Когда вызывать вместо `v4-lint.py guide --id N`:
+      - правка только prerequisites, остальное гайда не трогается;
+      - диагностика цикла после bulk-fix prerequisites'ов (формат вывода циклов —
+        компактный, с общим префиксом, см. _format_cycle, Ф3.10 L2);
+      - в CI на отдельный job для prereq-проверки (быстрее, чем полный `guide`).
+
+    Альтернатива: полный режим `v4-lint.py section --id <id>` или
+    `v4-lint.py guide --id <id>` — запускает ВСЕ правила соответствующего
+    CHECKLIST'а, включая prereq как один из блоков.
     """
     if args.scope not in ("section", "guide"):
         return report(
@@ -2003,6 +2097,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_struct = sub.add_parser("structure", help="Этап 2: синтаксис structure-guide-N.md")
     p_struct.add_argument("paths", nargs="+", help="Файлы или директория v4-reference/")
+    p_struct.add_argument(
+        "--strict-pack",
+        action="store_true",
+        help="Pack-sufficiency gate: STRUCT-EVIDENCE / A.8 (Pack-source у каждого 'вводится') "
+             "становится FAIL вместо WARN. Default = WARN (миграционный режим). "
+             "Используй для проверки готовности подраздела к письму (PD.FORM.103 Этап 3.5).",
+    )
     p_struct.set_defaults(func=cmd_structure)
 
     p_porter = sub.add_parser("porter", help="Этап 8: frontmatter подразделов для Портного")
@@ -2053,11 +2154,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_guide.add_argument("--pack", help="Путь к PD.FORM.089-learner-rcs.md (для D.1-D.3 pack-drift)")
     p_guide.set_defaults(func=cmd_guide)
 
-    p_pgraph = sub.add_parser("prerequisites-graph",
-                              help="CHECKLIST-section-v1 §🔴 (B.1-B.3): автономная проверка графа prereq")
+    p_pgraph = sub.add_parser(
+        "prerequisites-graph",
+        help="Автономная проверка графа prereq (быстрее полного section/guide)",
+        description=(
+            "Только B.1-B.3 (scope section) или C.1+C.3 (scope guide). "
+            "Без overhead остальных правил CHECKLIST'а. "
+            "Формат вывода циклов — компактный, с общим префиксом узлов."
+        ),
+        epilog=(
+            "Примеры:\n"
+            "  v4-lint.py prerequisites-graph --scope section --id PD.GUIDE.1.S1 specs/v4-reference/\n"
+            "  v4-lint.py prerequisites-graph --scope guide   --id 2             specs/v4-reference/\n"
+            "  v4-lint.py prerequisites-graph --scope guide   --id PD.GUIDE.2    specs/v4-reference/\n"
+            "\n"
+            "Когда вместо полного `guide`/`section`: правка только prerequisites; "
+            "повторная диагностика после bulk-fix; быстрый CI-job для prereq-валидации."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     p_pgraph.add_argument("paths", nargs="+", help="Файлы или директория v4-reference/")
     p_pgraph.add_argument("--scope", required=True, choices=["section", "guide"])
-    p_pgraph.add_argument("--id", required=True, help="ID scope: PD.GUIDE.<N>.S<X> или PD.GUIDE.<N>")
+    p_pgraph.add_argument("--id", required=True, help="ID scope: PD.GUIDE.<N>.S<X> (для section) или PD.GUIDE.<N> / N (для guide)")
     p_pgraph.set_defaults(func=cmd_prerequisites_graph)
 
     return parser

@@ -45,7 +45,7 @@ python3 tools/v4-lint.py structure specs/v4-reference/
 - [ ] **A.5 Формат «Понятия:»:** имя не начинается с `(`
 - [ ] **A.6 Тройка идентификации:** каждое «вводится» имеет имя + parent U.*
 - [ ] **A.7 Онтологическая бережливость (STRUCT-PARSIMONY):** ≤3 «вводится» на подраздел (WARN на 4+, FAIL на 6+)
-- [ ] **A.8 Evidence Graph (STRUCT-EVIDENCE):** каждое «вводится» имеет источник Pack `(PD.FORM/METHOD/CAT.NNN)` — WARN если нет
+- [ ] **A.8 Evidence Graph (STRUCT-EVIDENCE):** каждое «вводится» имеет источник Pack `(PD.FORM/METHOD/CAT.NNN)` — **FAIL если нет** (Pack-sufficiency gate, см. PD.FORM.103 Этап 3.5 + WRITING-PIPELINE §1.5). Severity поднята с WARN до FAIL 17 мая 2026 (Ф0.14, выравнивание с блокирующим правилом Pack-first; миграция: проверить guide 1-4 на orphan-концепты до включения в CI)
 - [ ] **A.9 Кейс в introduces:** нет имён собственных в «вводится» (Земмельвейс, Хохланд — FAIL)
 - [ ] **A.10 Шифры Pack в `introduces`:** запрещены `PD.FORM.NNN`, `PD.METHOD.NNN`, `cp.*`, `bh.*` внутри значений `introduces` — FAIL
 - [ ] **A.11 Формат `prerequisites`:** только `PD.GUIDE.N.SX.SSY`. `§X.YY` → FAIL
