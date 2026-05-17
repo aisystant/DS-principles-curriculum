@@ -556,6 +556,25 @@ def check_porter_frontmatter(sub: Subsection, known_ids: set[str], findings: lis
                 f"{sub.subsection_id or '<no-id>'}: отсутствует обязательное поле `{field_name}`",
             ))
 
+    # format_version check (legacy → v4 migration)
+    fmt_ver = fm.get("format_version")
+    if not fmt_ver:
+        findings.append(Finding(
+            "warning", sub.file, sub.line_start,
+            f"{sub.subsection_id or '<no-id>'}: отсутствует `format_version`. "
+            f"Добавь `format_version: 4.1` (main) или `4.1-aux` (auxiliary). "
+            f"Legacy-подразделы получают WARN, через 2 недели → FAIL.",
+        ))
+    elif fmt_ver not in ("4.1", "4.1-aux"):
+        findings.append(Finding(
+            "warning", sub.file, sub.line_start,
+            f"{sub.subsection_id or '<no-id>'}: неизвестный `format_version`: «{fmt_ver}». "
+            f"Ожидается 4.1 или 4.1-aux.",
+        ))
+
+    # Auxiliary subsections (.08-.11) skip concept-related checks
+    is_aux = fmt_ver == "4.1-aux" or (sub.subsection_id and sub.subsection_id.endswith((".SS8", ".SS9", ".SS10", ".SS11")))
+
     mastery = fm.get("mastery_node")
     if mastery:
         nodes = mastery if isinstance(mastery, list) else [mastery]
@@ -583,24 +602,25 @@ def check_porter_frontmatter(sub: Subsection, known_ids: set[str], findings: lis
                     f"{sub.subsection_id}: stage_relevant содержит невалидное значение «{s}» (ожидается 1-5)",
                 ))
 
-    can_do = fm.get("can_do")
-    if can_do:
-        items = can_do if isinstance(can_do, list) else [can_do]
-        for item in items:
-            if isinstance(item, str) and not item.lstrip().lower().startswith("могу"):
-                findings.append(Finding(
-                    "warning", sub.file, sub.line_start,
-                    f"{sub.subsection_id}: can_do элемент не начинается с «Могу»: «{item[:60]}»",
-                ))
+    if not is_aux:
+        can_do = fm.get("can_do")
+        if can_do:
+            items = can_do if isinstance(can_do, list) else [can_do]
+            for item in items:
+                if isinstance(item, str) and not item.lstrip().lower().startswith("могу"):
+                    findings.append(Finding(
+                        "warning", sub.file, sub.line_start,
+                        f"{sub.subsection_id}: can_do элемент не начинается с «Могу»: «{item[:60]}»",
+                    ))
 
-    introduces = fm.get("introduces", [])
-    if isinstance(introduces, list):
-        for name in introduces:
-            if isinstance(name, str) and name.startswith("U."):
-                findings.append(Finding(
-                    "error", sub.file, sub.line_start,
-                    f"{sub.subsection_id}: в `introduces` указан U.*-тип «{name}» — должно быть каноническое имя",
-                ))
+        introduces = fm.get("introduces", [])
+        if isinstance(introduces, list):
+            for name in introduces:
+                if isinstance(name, str) and name.startswith("U."):
+                    findings.append(Finding(
+                        "error", sub.file, sub.line_start,
+                        f"{sub.subsection_id}: в `introduces` указан U.*-тип «{name}» — должно быть каноническое имя",
+                    ))
 
     prereqs = fm.get("prerequisites", [])
     if isinstance(prereqs, list):
