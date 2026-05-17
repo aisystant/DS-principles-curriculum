@@ -1394,10 +1394,11 @@ def check_section_prerequisites_graph(
     несуществующий S99.SS1 ловится как FAIL. Без known_ids_all cross-section prereq
     только проверяется на корректный формат (B.3).
     """
+    # Subagent-review FIX (M2): pre-compile same_section_pattern один раз перед циклом
+    # (Python кэширует re-объекты, но семантика чище без скрытого кэша).
     own_ids = {sub.subsection_id for sub in section.subsections if sub.subsection_id}
     order_map = {sub.subsection_id: sub.order for sub in section.subsections if sub.subsection_id}
     graph: dict[str, list[str]] = {sid: [] for sid in own_ids}
-
     same_section_pattern = re.compile(
         rf"^PD\.GUIDE\.{section.guide}\.S{section.section}\.SS(\d+)$"
     )
@@ -1439,7 +1440,10 @@ def check_section_prerequisites_graph(
                         f"{sub.subsection_id}: prereq «{p_clean}» не существует в S{section.section} (B.1)",
                     ))
                 else:
-                    if order_map.get(p_clean, 10_000) >= sub.order:
+                    # Subagent-review FIX (M1): убран мёртвый fallback 10_000.
+                    # p_clean гарантированно в order_map: проверено условием выше
+                    # (p_clean in own_ids, а order_map строится из тех же ключей).
+                    if order_map[p_clean] >= sub.order:
                         findings.append(Finding(
                             "error", file, sub.line_start,
                             f"{sub.subsection_id}: prereq «{p_clean}» идёт ПОСЛЕ "
@@ -1449,6 +1453,11 @@ def check_section_prerequisites_graph(
             else:
                 # Cross-section prereq — формат PD.GUIDE.N.SX.SSY уже соблюдён.
                 # Subagent-review FIX (H5): если есть known_ids_all — проверить разрешимость.
+                # NB (C1): known_ids_all собран со ВСЕХ files structure-guide-*, т.е.
+                # cross-guide prereq (например, PD.GUIDE.2.S1.SS1 в guide-1) разрешится
+                # если SS существует в любом гайде. Это by design — cross-guide ссылки
+                # допустимы для общих понятий. Если в будущем потребуется строгий
+                # «only same guide» — нужно фильтровать known_ids_all по `section.guide`.
                 if known_ids_all is not None and p_clean not in known_ids_all:
                     findings.append(Finding(
                         "error", file, sub.line_start,
@@ -1466,7 +1475,17 @@ def check_section_prerequisites_graph(
 
 
 def check_section_introduce_before_use(file: Path, section: Section, findings: list[Finding]) -> None:
-    """C.1 — внутри раздела introduces идёт ДО uses (порядок чтения)."""
+    """C.1 — внутри раздела introduces идёт ДО uses (порядок чтения).
+
+    Subagent-review FIX (M3): порядок определяется через `sub.order` —
+    это field, заполняемый `parse_structure_file` инкрементально по мере
+    парсинга секции. Иначе говоря, `order` == position-in-file, что в
+    нормально отсортированном structure-guide.md совпадает с SS-номером
+    (`subsection_id` суффикс `.SSN`). Если автор переставит SS5 в начало
+    файла (нарушив порядок), C.1 будет проверять по file-order, не по
+    SS-номеру — поведение допустимое (file order = reading order для
+    читателя).
+    """
     first_introduction: dict[str, int] = {}
     for sub in section.subsections:
         for concept in sub.concepts:
@@ -1836,8 +1855,10 @@ def cmd_guide(args: argparse.Namespace) -> int:
     # A.1 — полнота разделов
     check_guide_section_completeness(structure_file, g, guide_sections, findings)
     # A.2 (delegated) — полнота SS в каждом разделе
+    # Subagent-review FIX (N2): атрибутируем error sec.file, не общему structure_file.
+    # При multi-file shard разделы из file2 теперь репортятся с file2 в пути.
     for sec in guide_sections:
-        check_section_ss_completeness(structure_file, sec, findings)
+        check_section_ss_completeness(sec.file, sec, findings)
     # A.4 / A.5 — Subagent-review FIX (H3): filesystem-checks README + version.json
     check_guide_readme_and_version(structure_file, g, args.paths, findings)
     # B.1 — кросс-руководная согласованность (внутри гайда)
