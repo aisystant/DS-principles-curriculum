@@ -33,7 +33,7 @@ jobs:
       - name: Checkout PACK-personal
         uses: actions/checkout@v4
         with:
-          repository: TserenTserenov/PACK-personal
+          repository: aisystant/PACK-personal
           token: ${{ secrets.PACK_READ_TOKEN || github.token }}
           path: pack-personal
 
