@@ -38,6 +38,12 @@ SUBSECTION_ID_LINE_RE = re.compile(
 TITLE_RE = re.compile(r'title:\s*"?([^"\n]+?)"?\s*$', re.MULTILINE)
 HEADER_RE = re.compile(r"^### \d+\.\d+\s+", re.MULTILINE)
 
+# <summary>NNN</summary> ... ## H2 ... </details>
+DETAILS_BLOCK_RE = re.compile(
+    r"<summary>([^<]+)</summary>\s*\n+## (.+?)$(?=.*?</details>)",
+    re.MULTILINE | re.DOTALL,
+)
+
 
 def normalize_subsection_id_in_text(text: str) -> tuple[str, int]:
     """Заменить `S1.01` → `S1.SS1`, `S1.10` → `S1.SS10`. Возвращает (new_text, count)."""
@@ -124,6 +130,42 @@ def detect_format(text: str) -> str:
     return "unknown"
 
 
+def find_summary_h2_drift(text: str) -> list[tuple[int, str, str]]:
+    """Возвращает [(line_no_of_summary, summary_text, h2_text)] для расхождений.
+
+    Канон — `## H2` (содержит subsection_id и метрики). `<summary>` — навигационная
+    вывеска, должна совпадать с H2 буква-в-букву.
+    """
+    drift = []
+    for m in DETAILS_BLOCK_RE.finditer(text):
+        summary = m.group(1).strip()
+        h2 = m.group(2).strip()
+        if summary != h2:
+            line_no = text[: m.start()].count("\n") + 1
+            drift.append((line_no, summary, h2))
+    return drift
+
+
+def align_summaries_to_h2(text: str) -> tuple[str, int]:
+    """Переписать каждый <summary> под ближайший ## H2. Возвращает (new_text, count)."""
+    count = 0
+
+    def repl(m: re.Match) -> str:
+        nonlocal count
+        summary = m.group(1).strip()
+        h2 = m.group(2).strip()
+        if summary == h2:
+            return m.group(0)
+        count += 1
+        return m.group(0).replace(
+            f"<summary>{m.group(1)}</summary>",
+            f"<summary>{h2}</summary>",
+            1,
+        )
+
+    return DETAILS_BLOCK_RE.sub(repl, text), count
+
+
 def process_file(path: Path, mode: str) -> int:
     """Returns count of changes."""
     text = path.read_text(encoding="utf-8")
@@ -133,21 +175,36 @@ def process_file(path: Path, mode: str) -> int:
     if ssid_fixes:
         print(f"  subsection_id normalize: {ssid_fixes}", file=sys.stderr)
 
+    # Шаг 0b: проверить <summary> ↔ ## H2 (отдельный слой, работает для всех форматов)
+    drift = find_summary_h2_drift(text)
+    summary_fixes = 0
+    if drift:
+        for line_no, summary, h2 in drift:
+            print(f"  L{line_no}: summary ≠ H2", file=sys.stderr)
+            print(f"    summary: {summary}", file=sys.stderr)
+            print(f"    h2:      {h2}", file=sys.stderr)
+        if mode == "fix":
+            text, summary_fixes = align_summaries_to_h2(text)
+            print(f"  → align_summaries_to_h2: {summary_fixes} исправлено", file=sys.stderr)
+
     fmt = detect_format(text)
     print(f"  Формат: {fmt}", file=sys.stderr)
 
     if fmt == "yaml-with-headers":
-        if ssid_fixes and mode == "fix":
-            # Уже в эталонном формате, но id были невалидными — сохраняем normalize
+        if (ssid_fixes or summary_fixes) and mode == "fix":
+            # Уже в эталонном формате, но id были невалидными или спойлеры расходились
             bak = path.with_suffix(path.suffix + ".bak")
             shutil.copy(path, bak)
             path.write_text(text, encoding="utf-8")
-            print(f"  {path.name}: subsection_id normalized ({ssid_fixes})", file=sys.stderr)
-            return ssid_fixes
+            print(
+                f"  {path.name}: ssid={ssid_fixes}, summary={summary_fixes}",
+                file=sys.stderr,
+            )
+            return ssid_fixes + summary_fixes
         print(f"  {path.name}: уже в эталонном формате — пропуск", file=sys.stderr)
-        return ssid_fixes
+        return ssid_fixes + summary_fixes
 
-    changes = ssid_fixes
+    changes = ssid_fixes + summary_fixes
     new_text = text
 
     if fmt == "yaml-no-headers":
