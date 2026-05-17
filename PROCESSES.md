@@ -445,6 +445,7 @@ upstream: [WP-322, CD-PIPELINE.md]
 
 | Система | Интерфейс | Направление |
 |---------|-----------|-------------|
+| **PD.FORM.103** (методический upstream) | Pack | Источник модели жизненного цикла руководства (10 этапов ВДВ) |
 | `PACK-personal` | GitHub webhook + `repository_dispatch` | Вход (онтология, метрики) |
 | `aisystant/docs` | Git (push/PR) + GitHub Actions | Выход (staging, prod) |
 | Telegram-бот | HTTP API | Выход (уведомления) |
@@ -452,3 +453,15 @@ upstream: [WP-322, CD-PIPELINE.md]
 | Claude API | HTTP API | Внешний сервис (LLM Build) |
 | WP-149 (Кими) | Координация ручная / shared design | Пересечение (LLM Build) |
 | WP-321 (валидаторы) | CLI tools / GitHub Actions | Вход (gate'ы качества) |
+
+### Карта чек-листов (содержательная проверка)
+
+CD-конвейер использует трёхуровневые чек-листы (см. [CHECKLISTS-README.md](specs/v4-reference/CHECKLISTS-README.md)):
+
+| Уровень | Файл | Применяется к |
+|---------|------|---------------|
+| Подраздел | [CHECKLIST-subsection-v1.md](specs/v4-reference/CHECKLIST-subsection-v1.md) | один SS |
+| Раздел | [CHECKLIST-section-v1.md](specs/v4-reference/CHECKLIST-section-v1.md) | один S |
+| Руководство | [CHECKLIST-guide-v1.md](specs/v4-reference/CHECKLIST-guide-v1.md) | целое руководство |
+
+Чек-листы покрывают этапы 6-9 PD.FORM.103 (🔴 lint → 🟡 субагент → 🟢 пилот). Правило вложенности: подраздел → раздел → руководство; нижний уровень должен быть PASS перед верхним.
