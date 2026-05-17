@@ -814,6 +814,9 @@ def cmd_cross_guide(args: argparse.Namespace) -> int:
     if not files:
         return report(findings, label="cross-guide")
 
+    scope = getattr(args, "scope", None)
+    scope_id = getattr(args, "id", None)
+
     introduces_map: dict[str, list[tuple[Path, str]]] = defaultdict(list)
     all_known_ids: set[str] = set()
     uses_list: list[tuple[str, Path, str]] = []  # (name, file, subsection_id)
@@ -821,6 +824,10 @@ def cmd_cross_guide(args: argparse.Namespace) -> int:
     for f in files:
         sections, parse_findings = parse_structure_file(f)
         findings.extend(parse_findings)
+        sections, scope_err = apply_scope_to_sections(sections, scope, scope_id)
+        if scope_err:
+            findings.append(scope_err)
+            return report(findings, label="cross-guide")
         for sec in sections:
             for sub in sec.subsections:
                 if sub.subsection_id:
@@ -888,9 +895,16 @@ def cmd_pack_drift(args: argparse.Namespace) -> int:
         ))
         return report(findings, label="pack-drift")
 
+    scope = getattr(args, "scope", None)
+    scope_id = getattr(args, "id", None)
+
     for f in files:
         sections, parse_findings = parse_structure_file(f)
         findings.extend(parse_findings)
+        sections, scope_err = apply_scope_to_sections(sections, scope, scope_id)
+        if scope_err:
+            findings.append(scope_err)
+            return report(findings, label="pack-drift")
         for sec in sections:
             for sub in sec.subsections:
                 check_pack_drift_in_frontmatter(sub, known_cp, known_bh, findings)
@@ -958,12 +972,19 @@ def cmd_graph_build(args: argparse.Namespace) -> int:
     if not files:
         return report(findings, label="graph build")
 
+    scope = getattr(args, "scope", None)
+    scope_id = getattr(args, "id", None)
+
     nodes: dict[str, dict] = {}  # name → {parent, pack_source, guide, subsection_id, mastery_node, stage_relevant}
     edges: list[dict] = []        # {source: subsection_id, target: concept_name, type: uses/contrast/see-also}
 
     for f in files:
         sections, parse_findings = parse_structure_file(f)
         findings.extend(parse_findings)
+        sections, scope_err = apply_scope_to_sections(sections, scope, scope_id)
+        if scope_err:
+            findings.append(scope_err)
+            return report(findings, label="graph build", findings_to_stderr=True)
         for sec in sections:
             for sub in sec.subsections:
                 for concept in sub.concepts:
@@ -1117,6 +1138,681 @@ def cmd_graph_diff(args: argparse.Namespace) -> int:
 
 
 # ============================================================================
+# Subcommand: section / guide / prerequisites-graph (WP-322 Ф3.8, 17 мая)
+# ============================================================================
+#
+# Эталоны: specs/v4-reference/CHECKLIST-section-v1.md §🔴 (A-C),
+#          specs/v4-reference/CHECKLIST-guide-v1.md §🔴 (A-D).
+#
+# Принцип: section/guide читают тот же structure-guide-N.md, что и cross-guide,
+# но проверяют разные инварианты. section фильтрует один S; guide агрегирует
+# проверки по всем S одного руководства.
+
+SECTION_ID_RE = re.compile(r"^PD\.GUIDE\.(\d+)\.S(\d+)$")
+GUIDE_ID_RE = re.compile(r"^PD\.GUIDE\.(\d+)$")
+SUBSECTION_FULL_ID_RE = re.compile(r"^PD\.GUIDE\.(\d+)\.S(\d+)\.SS(\d+)$")
+
+
+def parse_section_id(section_id: str) -> tuple[int, int] | None:
+    """`PD.GUIDE.<N>.S<X>` → (guide, section). None если формат неверный."""
+    if not section_id:
+        return None
+    m = SECTION_ID_RE.match(section_id.strip())
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
+
+
+def parse_guide_id_arg(guide_id: str) -> int | None:
+    """`PD.GUIDE.<N>` или голое `N` (1-4) → N. None если формат неверный или N вне 1-4.
+
+    Subagent-review FIX (H1): валидируем диапазон 1-4 единообразно для обоих форматов,
+    чтобы избежать inconsistency «5 → None, PD.GUIDE.5 → 5».
+    """
+    if not guide_id:
+        return None
+    g = guide_id.strip()
+    m = GUIDE_ID_RE.match(g)
+    if m:
+        n = int(m.group(1))
+        return n if 1 <= n <= 4 else None
+    if g.isdigit():
+        n = int(g)
+        return n if 1 <= n <= 4 else None
+    return None
+
+
+def apply_scope_to_sections(
+    sections: list[Section],
+    scope: str | None,
+    scope_id: str | None,
+) -> tuple[list[Section], Finding | None]:
+    """Помощник для cmd_cross_guide / cmd_pack_drift / cmd_graph_build (WP-322 Ф3.8).
+
+    Возвращает (filtered, error_finding|None).
+    scope=None → возврат без изменений, без ошибки.
+    Если scope валиден, но id нет/невалиден → пустой список + Finding(error).
+    """
+    if scope is None:
+        return sections, None
+
+    if scope == "guide":
+        g = parse_guide_id_arg(scope_id) if scope_id else None
+        if g is None:
+            return [], Finding(
+                "error", Path("."), None,
+                f"--scope guide требует --id PD.GUIDE.<N> или N (1-4), получено: «{scope_id}»",
+            )
+        return [s for s in sections if s.guide == g], None
+
+    if scope == "section":
+        parsed = parse_section_id(scope_id) if scope_id else None
+        if parsed is None:
+            return [], Finding(
+                "error", Path("."), None,
+                f"--scope section требует --id PD.GUIDE.<N>.S<X>, получено: «{scope_id}»",
+            )
+        g, sn = parsed
+        return [s for s in sections if s.guide == g and s.section == sn], None
+
+    return [], Finding(
+        "error", Path("."), None,
+        f"неизвестный --scope: «{scope}» (допустимо: guide, section)",
+    )
+
+
+def filter_sections_by_scope(
+    sections_per_file: list[tuple[Path, list[Section]]],
+    scope: str | None,
+    scope_id: str | None,
+) -> tuple[list[tuple[Path, list[Section]]], list[Finding]]:
+    """Фильтровать разделы по `--scope` + `--id`.
+
+    scope=None → без изменений.
+    scope='guide' + id='PD.GUIDE.<N>' или 'N' → только разделы guide N.
+    scope='section' + id='PD.GUIDE.<N>.S<X>' → только S X из guide N.
+
+    Возвращает: (отфильтрованные данные, findings об ошибках формата id).
+    """
+    if scope is None:
+        return sections_per_file, []
+
+    findings: list[Finding] = []
+    if scope == "guide":
+        g = parse_guide_id_arg(scope_id) if scope_id else None
+        if g is None:
+            findings.append(Finding(
+                "error", Path("."), None,
+                f"--scope guide требует --id PD.GUIDE.<N> или N (1-4), получено: `{scope_id}`",
+            ))
+            return [], findings
+        filtered = [(p, [s for s in secs if s.guide == g]) for p, secs in sections_per_file]
+        return filtered, findings
+
+    if scope == "section":
+        parsed = parse_section_id(scope_id) if scope_id else None
+        if parsed is None:
+            findings.append(Finding(
+                "error", Path("."), None,
+                f"--scope section требует --id PD.GUIDE.<N>.S<X>, получено: `{scope_id}`",
+            ))
+            return [], findings
+        g, s = parsed
+        filtered = [(p, [sec for sec in secs if sec.guide == g and sec.section == s])
+                    for p, secs in sections_per_file]
+        return filtered, findings
+
+    findings.append(Finding(
+        "error", Path("."), None,
+        f"неизвестный --scope: `{scope}` (допустимо: guide, section)",
+    ))
+    return [], findings
+
+
+# ----------------------------------------------------------------------------
+# Section checks (CHECKLIST-section-v1.md §🔴 A-C)
+# ----------------------------------------------------------------------------
+
+REQUIRED_SECTION_FRONTMATTER = ("section_id", "title", "parent_guide_id", "stage_focus", "mastery_node")
+
+
+def check_section_ss_completeness(file: Path, section: Section, findings: list[Finding]) -> None:
+    """A.1 — SS-номера непрерывны в разделе (нет пропусков)."""
+    if not section.subsections:
+        findings.append(Finding("error", file, None,
+                                f"S{section.section}: нет подразделов (по structure-guide)"))
+        return
+    nums = sorted(sub.order for sub in section.subsections)
+    expected = list(range(1, max(nums) + 1))
+    missing = sorted(set(expected) - set(nums))
+    if missing:
+        findings.append(Finding(
+            "error", file, None,
+            f"S{section.section}: пропущены SS: {missing} (присутствуют SS{nums})",
+        ))
+
+
+def check_section_frontmatter(file: Path, section: Section, findings: list[Finding]) -> None:
+    """A.2 — Frontmatter раздела содержит обязательные поля."""
+    fm = section.frontmatter or {}
+    for field_name in REQUIRED_SECTION_FRONTMATTER:
+        if field_name not in fm:
+            findings.append(Finding(
+                "error", file, None,
+                f"S{section.section}: frontmatter раздела не содержит `{field_name}` (A.2)",
+            ))
+
+
+def check_section_ss_parent_alignment(file: Path, section: Section, findings: list[Finding]) -> None:
+    """A.3 — Каждый SS имеет parent_section_id, совпадающий с этим S.
+
+    Subagent-review FIX (Б3): отсутствие parent_section_id — это нарушение A.3 (FAIL),
+    а не silent pass. Чек-лист требует наличия поля.
+
+    Subagent-review FIX (H2): не используем fallback от section.guide/section если
+    section_id отсутствует в frontmatter раздела — A.2 уже отрапортовал это.
+    """
+    section_id_canonical = (section.frontmatter or {}).get("section_id")
+    if not section_id_canonical:
+        # A.2 уже репортит отсутствие section_id; не делаем A.3 на fallback-форме
+        # чтобы не маскировать root-cause typo в section_id раздела.
+        return
+
+    for sub in section.subsections:
+        parent = (sub.frontmatter or {}).get("parent_section_id")
+        if not parent:
+            findings.append(Finding(
+                "error", file, sub.line_start,
+                f"{sub.subsection_id}: parent_section_id отсутствует во frontmatter (A.3)",
+            ))
+        elif parent != section_id_canonical:
+            findings.append(Finding(
+                "error", file, sub.line_start,
+                f"{sub.subsection_id}: parent_section_id «{parent}» ≠ «{section_id_canonical}» (A.3)",
+            ))
+
+
+def _detect_prereq_cycles(graph: dict[str, list[str]]) -> list[list[str]]:
+    """DFS cycle detection. Возвращает список циклов."""
+    cycles: list[list[str]] = []
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color: dict[str, int] = {n: WHITE for n in graph}
+
+    def dfs(node: str, path: list[str]) -> None:
+        if color.get(node, WHITE) == GRAY:
+            if node in path:
+                idx = path.index(node)
+                cycles.append(path[idx:] + [node])
+            return
+        if color.get(node, WHITE) == BLACK:
+            return
+        color[node] = GRAY
+        path.append(node)
+        for nb in graph.get(node, []):
+            dfs(nb, path)
+        path.pop()
+        color[node] = BLACK
+
+    for n in list(graph.keys()):
+        if color.get(n, WHITE) == WHITE:
+            dfs(n, [])
+    return cycles
+
+
+def check_section_prerequisites_graph(file: Path, section: Section, findings: list[Finding]) -> None:
+    """B.1 B.2 B.3 — prerequisites внутри раздела разрешаются, без циклов, cross-section помечен."""
+    own_ids = {sub.subsection_id for sub in section.subsections if sub.subsection_id}
+    order_map = {sub.subsection_id: sub.order for sub in section.subsections if sub.subsection_id}
+    graph: dict[str, list[str]] = {sid: [] for sid in own_ids}
+
+    same_section_pattern = re.compile(
+        rf"^PD\.GUIDE\.{section.guide}\.S{section.section}\.SS(\d+)$"
+    )
+
+    for sub in section.subsections:
+        # Subagent-review FIX (Б1): SS без subsection_id отрапортовать отдельно — иначе KeyError в graph.append.
+        # NB: prereqs такого SS пропускаются намеренно (B.1/B.2/B.3 не запускаются для него) —
+        # до устранения FAIL «нет subsection_id» проверки prereq ненадёжны, поскольку нечего привязывать.
+        if not sub.subsection_id:
+            findings.append(Finding(
+                "error", file, sub.line_start,
+                f"S{section.section} SS#{sub.order}: subsection_id отсутствует во frontmatter (B.1 предусловие)",
+            ))
+            continue
+        prereqs = (sub.frontmatter or {}).get("prerequisites", [])
+        if not isinstance(prereqs, list):
+            prereqs = [prereqs]
+        for p in prereqs:
+            if not isinstance(p, str):
+                continue
+            p_clean = p.strip()
+            if not p_clean:
+                continue
+
+            # B.3: формат должен быть PD.GUIDE.N.SX.SSY (любая секция).
+            if not SUBSECTION_FULL_ID_RE.match(p_clean):
+                findings.append(Finding(
+                    "error", file, sub.line_start,
+                    f"{sub.subsection_id}: prereq «{p_clean}» нерезолвится — "
+                    f"должен быть PD.GUIDE.N.SX.SSY (B.3)",
+                ))
+                continue
+
+            if same_section_pattern.match(p_clean):
+                # Внутрисекционный prereq — B.1 (существование) + B.2 (порядок).
+                if p_clean not in own_ids:
+                    findings.append(Finding(
+                        "error", file, sub.line_start,
+                        f"{sub.subsection_id}: prereq «{p_clean}» не существует в S{section.section} (B.1)",
+                    ))
+                else:
+                    if order_map.get(p_clean, 10_000) >= sub.order:
+                        findings.append(Finding(
+                            "error", file, sub.line_start,
+                            f"{sub.subsection_id}: prereq «{p_clean}» идёт ПОСЛЕ "
+                            f"(order {order_map[p_clean]} ≥ {sub.order}, B.1)",
+                        ))
+                    graph[sub.subsection_id].append(p_clean)
+            # Cross-section prereq — формат PD.GUIDE.N.SX.SSY уже соблюдён, OK.
+
+    # B.2 — циклы в локальном графе.
+    cycles = _detect_prereq_cycles(graph)
+    for cycle in cycles:
+        findings.append(Finding(
+            "error", file, None,
+            f"S{section.section}: цикл prerequisites: {' → '.join(cycle)} (B.2)",
+        ))
+
+
+def check_section_introduce_before_use(file: Path, section: Section, findings: list[Finding]) -> None:
+    """C.1 — внутри раздела introduces идёт ДО uses (порядок чтения)."""
+    first_introduction: dict[str, int] = {}
+    for sub in section.subsections:
+        for concept in sub.concepts:
+            name = (concept.get("name") or "").strip()
+            if concept.get("marker") == "вводится" and name and name not in first_introduction:
+                first_introduction[name] = sub.order
+
+    for sub in section.subsections:
+        for concept in sub.concepts:
+            name = (concept.get("name") or "").strip()
+            if concept.get("marker") == "используется" and name in first_introduction:
+                if first_introduction[name] > sub.order:
+                    findings.append(Finding(
+                        "error", file, sub.line_start,
+                        f"{sub.subsection_id}: «{name}» используется ДО введения "
+                        f"(вводится в SS{first_introduction[name]}, C.1)",
+                    ))
+
+
+def check_section_mastery_node_consistency(file: Path, section: Section, findings: list[Finding]) -> None:
+    """C.2 — узел мастерства консистентен между разделом и его SS."""
+    section_node = (section.frontmatter or {}).get("mastery_node")
+    if not section_node:
+        return  # A.2 уже отрапортовал
+    section_set = set(section_node) if isinstance(section_node, list) else {section_node}
+
+    for sub in section.subsections:
+        sub_node = (sub.frontmatter or {}).get("mastery_node")
+        if not sub_node:
+            continue
+        sub_set = set(sub_node) if isinstance(sub_node, list) else {sub_node}
+        if not (sub_set & section_set):
+            findings.append(Finding(
+                "error", file, sub.line_start,
+                f"{sub.subsection_id}: mastery_node {sorted(sub_set)} не пересекается "
+                f"с S{section.section} mastery_node {sorted(section_set)} (C.2)",
+            ))
+
+
+def cmd_section(args: argparse.Namespace) -> int:
+    """Этап section: проверки CHECKLIST-section-v1.md §🔴 A-C."""
+    parsed = parse_section_id(args.id)
+    if parsed is None:
+        return report(
+            [Finding("error", Path("."), None,
+                     f"--id должен быть формата PD.GUIDE.<N>.S<X>, получено: «{args.id}»")],
+            label="section",
+        )
+    target_guide, target_section = parsed
+
+    targets = [Path(p) for p in args.paths]
+    files, findings = collect_structure_files(targets)
+    if not files:
+        return report(findings, label="section")
+
+    matched_section: Section | None = None
+    structure_file: Path | None = None
+    for f in files:
+        sections, parse_findings = parse_structure_file(f)
+        findings.extend(parse_findings)
+        for sec in sections:
+            if sec.guide == target_guide and sec.section == target_section:
+                matched_section = sec
+                structure_file = f
+                break
+        if matched_section:
+            break
+
+    if matched_section is None or structure_file is None:
+        findings.append(Finding(
+            "error", Path("."), None,
+            f"раздел PD.GUIDE.{target_guide}.S{target_section} не найден в "
+            f"{[f.name for f in files]}",
+        ))
+        return report(findings, label="section")
+
+    check_section_ss_completeness(structure_file, matched_section, findings)
+    check_section_frontmatter(structure_file, matched_section, findings)
+    check_section_ss_parent_alignment(structure_file, matched_section, findings)
+    check_section_prerequisites_graph(structure_file, matched_section, findings)
+    check_section_introduce_before_use(structure_file, matched_section, findings)
+    check_section_mastery_node_consistency(structure_file, matched_section, findings)
+
+    return report(findings, label=f"section PD.GUIDE.{target_guide}.S{target_section}")
+
+
+# ----------------------------------------------------------------------------
+# Guide checks (CHECKLIST-guide-v1.md §🔴 A-D)
+# ----------------------------------------------------------------------------
+
+REQUIRED_GUIDE_FRONTMATTER = ("guide_id", "title", "object", "axis", "stages")
+
+
+def check_guide_section_completeness(
+    file: Path, guide_num: int, guide_sections: list[Section], findings: list[Finding],
+) -> None:
+    """A.1 — все S присутствуют (S1..SN без пропусков)."""
+    if not guide_sections:
+        findings.append(Finding("error", file, None,
+                                f"PD.GUIDE.{guide_num}: нет разделов в structure"))
+        return
+    nums = sorted(s.section for s in guide_sections)
+    expected = list(range(1, max(nums) + 1))
+    missing = sorted(set(expected) - set(nums))
+    if missing:
+        findings.append(Finding(
+            "error", file, None,
+            f"PD.GUIDE.{guide_num}: пропущены S: {missing} (присутствуют S{nums}) (A.1)",
+        ))
+
+
+def check_guide_bounded_context(
+    file: Path, guide_num: int, guide_sections: list[Section], findings: list[Finding],
+) -> None:
+    """B.2 — Bounded Context: руководства 1-2 не должны содержать SS с mastery_node=iwe."""
+    if guide_num not in GUIDES_FORBID_IWE:
+        return
+    for sec in guide_sections:
+        for sub in sec.subsections:
+            sub_node = (sub.frontmatter or {}).get("mastery_node")
+            if not sub_node:
+                continue
+            sub_set = set(sub_node) if isinstance(sub_node, list) else {sub_node}
+            if "iwe" in sub_set:
+                findings.append(Finding(
+                    "error", file, sub.line_start,
+                    f"{sub.subsection_id}: mastery_node содержит «iwe», "
+                    f"но Guide {guide_num} не должен вводить iwe-узел (B.2, A.1.1)",
+                ))
+
+
+def check_guide_cross_consistency(
+    file: Path, guide_num: int, guide_sections: list[Section], findings: list[Finding],
+) -> None:
+    """B.1 — понятия не дублируются внутри руководства (один источник `вводится`)."""
+    introduces_map: dict[str, list[str]] = defaultdict(list)
+    for sec in guide_sections:
+        for sub in sec.subsections:
+            for concept in sub.concepts:
+                name = (concept.get("name") or "").strip()
+                marker = concept.get("marker")
+                if marker == "вводится" and name:
+                    introduces_map[name].append(sub.subsection_id)
+
+    for name, locations in introduces_map.items():
+        if len(locations) > 1:
+            findings.append(Finding(
+                "error", file, None,
+                f"Guide {guide_num}: понятие «{name}» вводится {len(locations)}× в "
+                f"[{', '.join(locations)}] — должно быть одно определение (B.1)",
+            ))
+
+
+def check_guide_orphan_uses(
+    file: Path, guide_num: int, guide_sections: list[Section], findings: list[Finding],
+) -> None:
+    """B.3 — каждое `используется` ссылается на `вводится` (в этом или другом гайде).
+    Здесь проверяем только внутри гайда; cross-guide ссылки проверяет cmd_cross_guide.
+    """
+    introduces_local: set[str] = set()
+    uses_list: list[tuple[str, str]] = []  # (name, subsection_id)
+    for sec in guide_sections:
+        for sub in sec.subsections:
+            for concept in sub.concepts:
+                name = (concept.get("name") or "").strip()
+                marker = concept.get("marker")
+                if marker == "вводится" and name:
+                    introduces_local.add(name)
+                elif marker == "используется" and name:
+                    uses_list.append((name, sub.subsection_id))
+
+    for name, sub_id in uses_list:
+        if name not in introduces_local:
+            # WARN: может быть введено в другом гайде. cross-guide подтвердит.
+            findings.append(Finding(
+                "warning", file, None,
+                f"Guide {guide_num}: {sub_id}: «{name}» помечено `используется`, "
+                f"но в этом гайде не вводится (B.3 — проверь cross-guide)",
+            ))
+
+
+def check_guide_pack_mapping(
+    file: Path, guide_num: int, guide_sections: list[Section], findings: list[Finding],
+) -> None:
+    """B.4 — каждое `вводится` имеет ссылку на Pack (PD.FORM/METHOD/CAT.NNN).
+
+    Subagent-review FIX (Б2): использовать concept["pack_source"], а не concept["ref"].
+    `ref` — это cross-subsection ссылка (X.SY.SSZ), `pack_source` — это PD.FORM/METHOD/CAT.NNN
+    (см. parse_concepts_block:189-191).
+    """
+    for sec in guide_sections:
+        for sub in sec.subsections:
+            for concept in sub.concepts:
+                name = (concept.get("name") or "").strip()
+                marker = concept.get("marker")
+                if marker != "вводится" or not name:
+                    continue
+                pack_source = concept.get("pack_source")
+                if not pack_source:
+                    findings.append(Finding(
+                        "warning", file, sub.line_start,
+                        f"Guide {guide_num}: {sub.subsection_id}: «{name}» вводится "
+                        f"без ссылки на Pack (PD.FORM/METHOD/CAT.NNN) (B.4)",
+                    ))
+
+
+def check_guide_prereq_acyclic_and_order(
+    file: Path, guide_num: int, guide_sections: list[Section], findings: list[Finding],
+) -> None:
+    """C.1 + C.3 — ациклический граф prerequisites + порядок чтения."""
+    sub_order_global: dict[str, tuple[int, int]] = {}  # subsection_id → (section, order)
+    for sec in guide_sections:
+        for sub in sec.subsections:
+            if sub.subsection_id:
+                sub_order_global[sub.subsection_id] = (sec.section, sub.order)
+
+    graph: dict[str, list[str]] = {sid: [] for sid in sub_order_global}
+    for sec in guide_sections:
+        for sub in sec.subsections:
+            prereqs = (sub.frontmatter or {}).get("prerequisites", [])
+            if not isinstance(prereqs, list):
+                prereqs = [prereqs]
+            for p in prereqs:
+                if not isinstance(p, str):
+                    continue
+                p_clean = p.strip()
+                if not SUBSECTION_FULL_ID_RE.match(p_clean):
+                    continue  # B.3 формат — отрапортован в check_section_*
+                # C.3 — prereq должен быть ДО (по (section, order))
+                if p_clean in sub_order_global:
+                    pre_loc = sub_order_global[p_clean]
+                    cur_loc = (sec.section, sub.order)
+                    if pre_loc >= cur_loc:
+                        findings.append(Finding(
+                            "error", file, sub.line_start,
+                            f"Guide {guide_num}: {sub.subsection_id}: prereq «{p_clean}» "
+                            f"идёт ПОСЛЕ в порядке чтения (S{pre_loc[0]}.SS{pre_loc[1]} ≥ "
+                            f"S{cur_loc[0]}.SS{cur_loc[1]}, C.3)",
+                        ))
+                    if sub.subsection_id:
+                        graph[sub.subsection_id].append(p_clean)
+
+    # C.1 — циклы
+    cycles = _detect_prereq_cycles(graph)
+    for cycle in cycles:
+        findings.append(Finding(
+            "error", file, None,
+            f"Guide {guide_num}: цикл prerequisites: {' → '.join(cycle)} (C.1)",
+        ))
+
+
+def cmd_guide(args: argparse.Namespace) -> int:
+    """Этап guide: проверки CHECKLIST-guide-v1.md §🔴 A-D."""
+    g = parse_guide_id_arg(args.id)
+    if g is None:
+        return report(
+            [Finding("error", Path("."), None,
+                     f"--id должен быть PD.GUIDE.<N> или N (1-4), получено: «{args.id}»")],
+            label="guide",
+        )
+
+    targets = [Path(p) for p in args.paths]
+    files, findings = collect_structure_files(targets)
+    if not files:
+        return report(findings, label="guide")
+
+    structure_file: Path | None = None
+    guide_sections: list[Section] = []
+    for f in files:
+        sections, parse_findings = parse_structure_file(f)
+        findings.extend(parse_findings)
+        secs_in_guide = [s for s in sections if s.guide == g]
+        if secs_in_guide:
+            structure_file = f
+            guide_sections = secs_in_guide
+            break
+
+    if structure_file is None:
+        findings.append(Finding(
+            "error", Path("."), None,
+            f"PD.GUIDE.{g}: structure-guide-{g}.md не найден среди {[f.name for f in files]}",
+        ))
+        return report(findings, label="guide")
+
+    # A.1 — полнота разделов
+    check_guide_section_completeness(structure_file, g, guide_sections, findings)
+    # A.2 (delegated) — полнота SS в каждом разделе
+    for sec in guide_sections:
+        check_section_ss_completeness(structure_file, sec, findings)
+    # B.1 — кросс-руководная согласованность (внутри гайда)
+    check_guide_cross_consistency(structure_file, g, guide_sections, findings)
+    # B.2 — Bounded Context
+    check_guide_bounded_context(structure_file, g, guide_sections, findings)
+    # B.3 — orphan uses (warn)
+    check_guide_orphan_uses(structure_file, g, guide_sections, findings)
+    # B.4 — Pack-маппинг (warn)
+    check_guide_pack_mapping(structure_file, g, guide_sections, findings)
+    # C.1 + C.3 — ацикличность + порядок
+    check_guide_prereq_acyclic_and_order(structure_file, g, guide_sections, findings)
+
+    # D.1-D.3 — pack-drift (опционально, если передан --pack)
+    if getattr(args, "pack", None):
+        pack_path = Path(args.pack)
+        if not pack_path.exists():
+            findings.append(Finding("error", pack_path, None, f"Pack-файл не найден: {pack_path}"))
+        else:
+            pack_data = parse_pack_form089(pack_path)
+            known_cp = pack_data["cp"]
+            known_bh = pack_data["bh"]
+            for sec in guide_sections:
+                for sub in sec.subsections:
+                    check_pack_drift_in_frontmatter(sub, known_cp, known_bh, findings)
+                    check_pack_drift_in_text(sub, known_cp, known_bh, findings)
+
+    return report(findings, label=f"guide PD.GUIDE.{g}")
+
+
+# ----------------------------------------------------------------------------
+# Prerequisites-graph (CHECKLIST-section-v1.md §🔴 B.1-B.3; standalone)
+# ----------------------------------------------------------------------------
+
+def cmd_prerequisites_graph(args: argparse.Namespace) -> int:
+    """Отдельная проверка графа prerequisites. --scope section | guide + --id <id>.
+
+    Делегирует логику в check_section_prerequisites_graph (section)
+    или check_guide_prereq_acyclic_and_order (guide). Возвращает FAIL если есть error-finding.
+    """
+    if args.scope not in ("section", "guide"):
+        return report(
+            [Finding("error", Path("."), None,
+                     f"--scope должен быть section или guide, получено: «{args.scope}»")],
+            label="prerequisites-graph",
+        )
+
+    if args.scope == "section":
+        # Делегируем cmd_section в режиме «только prereq-проверки».
+        parsed = parse_section_id(args.id)
+        if parsed is None:
+            return report(
+                [Finding("error", Path("."), None,
+                         f"--scope section --id должен быть PD.GUIDE.<N>.S<X>, получено: «{args.id}»")],
+                label="prerequisites-graph",
+            )
+        target_guide, target_section = parsed
+
+        targets = [Path(p) for p in args.paths]
+        files, findings = collect_structure_files(targets)
+        if not files:
+            return report(findings, label="prerequisites-graph")
+
+        for f in files:
+            sections, parse_findings = parse_structure_file(f)
+            findings.extend(parse_findings)
+            for sec in sections:
+                if sec.guide == target_guide and sec.section == target_section:
+                    check_section_prerequisites_graph(f, sec, findings)
+                    return report(findings, label=f"prereq-graph section PD.GUIDE.{target_guide}.S{target_section}")
+
+        findings.append(Finding("error", Path("."), None,
+                                f"раздел PD.GUIDE.{target_guide}.S{target_section} не найден"))
+        return report(findings, label="prerequisites-graph")
+
+    # scope == "guide"
+    g = parse_guide_id_arg(args.id)
+    if g is None:
+        return report(
+            [Finding("error", Path("."), None,
+                     f"--scope guide --id должен быть PD.GUIDE.<N> или N, получено: «{args.id}»")],
+            label="prerequisites-graph",
+        )
+    targets = [Path(p) for p in args.paths]
+    files, findings = collect_structure_files(targets)
+    if not files:
+        return report(findings, label="prerequisites-graph")
+    for f in files:
+        sections, parse_findings = parse_structure_file(f)
+        findings.extend(parse_findings)
+        secs = [s for s in sections if s.guide == g]
+        if secs:
+            check_guide_prereq_acyclic_and_order(f, g, secs, findings)
+            return report(findings, label=f"prereq-graph guide PD.GUIDE.{g}")
+
+    findings.append(Finding("error", Path("."), None, f"PD.GUIDE.{g} не найден"))
+    return report(findings, label="prerequisites-graph")
+
+
+# ============================================================================
 # Отчёт
 # ============================================================================
 
@@ -1159,11 +1855,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_cross = sub.add_parser("cross-guide", help="Этап 10: один концепт = одно определение")
     p_cross.add_argument("paths", nargs="+")
+    p_cross.add_argument("--scope", choices=["section", "guide"],
+                         help="Ограничить scope проверки (WP-322 Ф3.8)")
+    p_cross.add_argument("--id", help="ID scope: PD.GUIDE.<N> или PD.GUIDE.<N>.S<X>")
     p_cross.set_defaults(func=cmd_cross_guide)
 
     p_drift = sub.add_parser("pack-drift", help="Этап 14: cp/bh упоминания vs Pack FORM.089")
     p_drift.add_argument("paths", nargs="+")
     p_drift.add_argument("--pack", help="Путь к PD.FORM.089-learner-rcs.md")
+    p_drift.add_argument("--scope", choices=["section", "guide"],
+                         help="Ограничить scope проверки (WP-322 Ф3.8)")
+    p_drift.add_argument("--id", help="ID scope: PD.GUIDE.<N> или PD.GUIDE.<N>.S<X>")
     p_drift.set_defaults(func=cmd_pack_drift)
 
     p_graph = sub.add_parser("graph", help="Концепт-граф из specs/v4-reference/ (build/diff)")
@@ -1173,12 +1875,34 @@ def build_parser() -> argparse.ArgumentParser:
     p_graph_build.add_argument("paths", nargs="+", help="Файлы или директория v4-reference/")
     p_graph_build.add_argument("--out-json", help="Записать JSON-снимок графа (иначе — stdout)")
     p_graph_build.add_argument("--out-dot", help="Записать Graphviz DOT для визуализации")
+    p_graph_build.add_argument("--scope", choices=["section", "guide"],
+                               help="Ограничить scope графа (WP-322 Ф3.8)")
+    p_graph_build.add_argument("--id", help="ID scope: PD.GUIDE.<N> или PD.GUIDE.<N>.S<X>")
     p_graph_build.set_defaults(func=cmd_graph, graph_func=cmd_graph_build)
 
     p_graph_diff = graph_sub.add_parser("diff", help="Сравнить два JSON-снимка графа")
     p_graph_diff.add_argument("before", help="Старый JSON-снимок")
     p_graph_diff.add_argument("after", help="Новый JSON-снимок")
     p_graph_diff.set_defaults(func=cmd_graph, graph_func=cmd_graph_diff)
+
+    # WP-322 Ф3.8: section / guide / prerequisites-graph
+    p_section = sub.add_parser("section", help="CHECKLIST-section-v1 §🔴 (A-C): полнота, frontmatter, prereq-граф")
+    p_section.add_argument("paths", nargs="+", help="Файлы или директория v4-reference/")
+    p_section.add_argument("--id", required=True, help="ID раздела: PD.GUIDE.<N>.S<X>")
+    p_section.set_defaults(func=cmd_section)
+
+    p_guide = sub.add_parser("guide", help="CHECKLIST-guide-v1 §🔴 (A-D): полнота руководства, согласованность")
+    p_guide.add_argument("paths", nargs="+", help="Файлы или директория v4-reference/")
+    p_guide.add_argument("--id", required=True, help="ID руководства: PD.GUIDE.<N> или N (1-4)")
+    p_guide.add_argument("--pack", help="Путь к PD.FORM.089-learner-rcs.md (для D.1-D.3 pack-drift)")
+    p_guide.set_defaults(func=cmd_guide)
+
+    p_pgraph = sub.add_parser("prerequisites-graph",
+                              help="CHECKLIST-section-v1 §🔴 (B.1-B.3): автономная проверка графа prereq")
+    p_pgraph.add_argument("paths", nargs="+", help="Файлы или директория v4-reference/")
+    p_pgraph.add_argument("--scope", required=True, choices=["section", "guide"])
+    p_pgraph.add_argument("--id", required=True, help="ID scope: PD.GUIDE.<N>.S<X> или PD.GUIDE.<N>")
+    p_pgraph.set_defaults(func=cmd_prerequisites_graph)
 
     return parser
 
