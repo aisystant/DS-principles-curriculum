@@ -19,6 +19,7 @@ import argparse
 import re
 import sys
 from collections import defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -1333,34 +1334,66 @@ def check_section_ss_parent_alignment(file: Path, section: Section, findings: li
 
 
 def _detect_prereq_cycles(graph: dict[str, list[str]]) -> list[list[str]]:
-    """DFS cycle detection. Возвращает список циклов."""
+    """Итеративный DFS cycle detection. Возвращает список циклов.
+
+    Subagent-review FIX (L1): переписано на стек вместо рекурсии для защиты от
+    RecursionError при глубоких графах (>1000 SS). Для типичного гайда (≤70 SS)
+    результат идентичен рекурсивной версии.
+
+    Алгоритм: стандартный 3-цветный DFS, но цикл detection реализован через
+    явный стек (node, child_iter). При обнаружении GRAY-вершины — извлекается
+    цикл из path. Path хранится синхронно со стеком.
+    """
     cycles: list[list[str]] = []
     WHITE, GRAY, BLACK = 0, 1, 2
     color: dict[str, int] = {n: WHITE for n in graph}
 
-    def dfs(node: str, path: list[str]) -> None:
-        if color.get(node, WHITE) == GRAY:
-            if node in path:
-                idx = path.index(node)
-                cycles.append(path[idx:] + [node])
-            return
-        if color.get(node, WHITE) == BLACK:
-            return
-        color[node] = GRAY
-        path.append(node)
-        for nb in graph.get(node, []):
-            dfs(nb, path)
-        path.pop()
-        color[node] = BLACK
+    for start in list(graph.keys()):
+        if color.get(start, WHITE) != WHITE:
+            continue
+        # Стек содержит кортежи (node, iterator-of-neighbors).
+        # path — текущий DFS-путь (для извлечения цикла).
+        # Subagent-review FIX (N1): type-annotation использует Iterator[str], не any.
+        stack: list[tuple[str, "Iterator[str]"]] = [(start, iter(graph.get(start, [])))]
+        path: list[str] = [start]
+        color[start] = GRAY
 
-    for n in list(graph.keys()):
-        if color.get(n, WHITE) == WHITE:
-            dfs(n, [])
+        while stack:
+            node, nb_iter = stack[-1]
+            advanced = False
+            for nb in nb_iter:
+                nb_color = color.get(nb, WHITE)
+                if nb_color == GRAY:
+                    # Цикл обнаружен — извлекаем из path.
+                    if nb in path:
+                        idx = path.index(nb)
+                        cycles.append(path[idx:] + [nb])
+                elif nb_color == WHITE:
+                    color[nb] = GRAY
+                    path.append(nb)
+                    stack.append((nb, iter(graph.get(nb, []))))
+                    advanced = True
+                    break
+            if not advanced:
+                # Все соседи обработаны — backtrack.
+                color[node] = BLACK
+                stack.pop()
+                path.pop()
+
     return cycles
 
 
-def check_section_prerequisites_graph(file: Path, section: Section, findings: list[Finding]) -> None:
-    """B.1 B.2 B.3 — prerequisites внутри раздела разрешаются, без циклов, cross-section помечен."""
+def check_section_prerequisites_graph(
+    file: Path, section: Section, findings: list[Finding],
+    known_ids_all: set[str] | None = None,
+) -> None:
+    """B.1 B.2 B.3 — prerequisites внутри раздела разрешаются, без циклов, cross-section помечен.
+
+    Subagent-review FIX (H5): если передан known_ids_all (набор subsection_id со ВСЕХ
+    файлов структуры), cross-section prereq дополнительно валидируется: ссылка на
+    несуществующий S99.SS1 ловится как FAIL. Без known_ids_all cross-section prereq
+    только проверяется на корректный формат (B.3).
+    """
     own_ids = {sub.subsection_id for sub in section.subsections if sub.subsection_id}
     order_map = {sub.subsection_id: sub.order for sub in section.subsections if sub.subsection_id}
     graph: dict[str, list[str]] = {sid: [] for sid in own_ids}
@@ -1413,7 +1446,15 @@ def check_section_prerequisites_graph(file: Path, section: Section, findings: li
                             f"(order {order_map[p_clean]} ≥ {sub.order}, B.1)",
                         ))
                     graph[sub.subsection_id].append(p_clean)
-            # Cross-section prereq — формат PD.GUIDE.N.SX.SSY уже соблюдён, OK.
+            else:
+                # Cross-section prereq — формат PD.GUIDE.N.SX.SSY уже соблюдён.
+                # Subagent-review FIX (H5): если есть known_ids_all — проверить разрешимость.
+                if known_ids_all is not None and p_clean not in known_ids_all:
+                    findings.append(Finding(
+                        "error", file, sub.line_start,
+                        f"{sub.subsection_id}: cross-section prereq «{p_clean}» "
+                        f"не разрешается ни в одном structure-guide-N.md (B.3)",
+                    ))
 
     # B.2 — циклы в локальном графе.
     cycles = _detect_prereq_cycles(graph)
@@ -1483,16 +1524,19 @@ def cmd_section(args: argparse.Namespace) -> int:
 
     matched_section: Section | None = None
     structure_file: Path | None = None
+    # Subagent-review FIX (H5): собрать known_ids_all со ВСЕХ файлов для
+    # валидации cross-section prereq.
+    known_ids_all: set[str] = set()
     for f in files:
         sections, parse_findings = parse_structure_file(f)
         findings.extend(parse_findings)
         for sec in sections:
+            for sub in sec.subsections:
+                if sub.subsection_id:
+                    known_ids_all.add(sub.subsection_id)
             if sec.guide == target_guide and sec.section == target_section:
                 matched_section = sec
                 structure_file = f
-                break
-        if matched_section:
-            break
 
     if matched_section is None or structure_file is None:
         findings.append(Finding(
@@ -1505,7 +1549,7 @@ def cmd_section(args: argparse.Namespace) -> int:
     check_section_ss_completeness(structure_file, matched_section, findings)
     check_section_frontmatter(structure_file, matched_section, findings)
     check_section_ss_parent_alignment(structure_file, matched_section, findings)
-    check_section_prerequisites_graph(structure_file, matched_section, findings)
+    check_section_prerequisites_graph(structure_file, matched_section, findings, known_ids_all)
     check_section_introduce_before_use(structure_file, matched_section, findings)
     check_section_mastery_node_consistency(structure_file, matched_section, findings)
 
@@ -1677,6 +1721,65 @@ def check_guide_prereq_acyclic_and_order(
         ))
 
 
+def check_guide_readme_and_version(
+    file: Path, guide_num: int, paths_arg: list[str], findings: list[Finding],
+) -> None:
+    """A.4 + A.5 — Subagent-review FIX (H3): filesystem-checks README.md + version.json.
+
+    A.4 (README руководства): ищем `README-guide-<N>.md` или `README.md` в той же
+    директории что и structure-guide-<N>.md. WARN если не найден (не блокирует).
+
+    A.5 (version.json): ищем `version.json` или `version-guide-<N>.json` в той же
+    директории. Проверяем что значение `version` соответствует semver v4.X.Y.
+    WARN если не найден или формат неверен.
+
+    Оба check'а — WARN, не блокирующие, потому что:
+    - В v1.0 эти артефакты могут отсутствовать (Ф0 ещё не создал README на гайд)
+    - Структура файловой иерархии не финализирована в чек-листе
+    """
+    import json as _json
+
+    # Директория structure-guide файла
+    parent_dir = file.parent
+
+    # A.4 README — две конвенции имени
+    readme_candidates = [
+        parent_dir / f"README-guide-{guide_num}.md",
+        parent_dir / "README.md",
+    ]
+    if not any(p.exists() for p in readme_candidates):
+        findings.append(Finding(
+            "warning", file, None,
+            f"Guide {guide_num}: README не найден среди {[p.name for p in readme_candidates]} (A.4)",
+        ))
+
+    # A.5 version.json
+    version_candidates = [
+        parent_dir / f"version-guide-{guide_num}.json",
+        parent_dir / "version.json",
+    ]
+    version_file = next((p for p in version_candidates if p.exists()), None)
+    if version_file is None:
+        findings.append(Finding(
+            "warning", file, None,
+            f"Guide {guide_num}: version.json не найден среди {[p.name for p in version_candidates]} (A.5)",
+        ))
+    else:
+        try:
+            version_data = _json.loads(version_file.read_text(encoding="utf-8"))
+            version_str = version_data.get("version", "")
+            if not re.match(r"^v?4\.\d+\.\d+$", version_str):
+                findings.append(Finding(
+                    "warning", version_file, None,
+                    f"Guide {guide_num}: version={version_str!r} не соответствует semver v4.X.Y (A.5)",
+                ))
+        except (OSError, _json.JSONDecodeError) as e:
+            findings.append(Finding(
+                "warning", version_file, None,
+                f"Guide {guide_num}: не удалось распарсить version.json: {e} (A.5)",
+            ))
+
+
 def cmd_guide(args: argparse.Namespace) -> int:
     """Этап guide: проверки CHECKLIST-guide-v1.md §🔴 A-D."""
     g = parse_guide_id_arg(args.id)
@@ -1692,29 +1795,37 @@ def cmd_guide(args: argparse.Namespace) -> int:
     if not files:
         return report(findings, label="guide")
 
-    structure_file: Path | None = None
+    # Subagent-review FIX (H4): мульти-файловый shard — собираем разделы guide N
+    # из ВСЕХ файлов, а не только первого. structure-guide может быть разбит на
+    # patch-файлы (например, при peer-merge); первый match не должен быть единственным.
+    structure_files_for_guide: list[Path] = []
     guide_sections: list[Section] = []
     for f in files:
         sections, parse_findings = parse_structure_file(f)
         findings.extend(parse_findings)
         secs_in_guide = [s for s in sections if s.guide == g]
         if secs_in_guide:
-            structure_file = f
-            guide_sections = secs_in_guide
-            break
+            structure_files_for_guide.append(f)
+            guide_sections.extend(secs_in_guide)
 
-    if structure_file is None:
+    if not guide_sections:
         findings.append(Finding(
             "error", Path("."), None,
             f"PD.GUIDE.{g}: structure-guide-{g}.md не найден среди {[f.name for f in files]}",
         ))
         return report(findings, label="guide")
 
+    # Используем первый файл как «representative» для error reporting,
+    # но проверки оперируют объединённой коллекцией sections.
+    structure_file = structure_files_for_guide[0]
+
     # A.1 — полнота разделов
     check_guide_section_completeness(structure_file, g, guide_sections, findings)
     # A.2 (delegated) — полнота SS в каждом разделе
     for sec in guide_sections:
         check_section_ss_completeness(structure_file, sec, findings)
+    # A.4 / A.5 — Subagent-review FIX (H3): filesystem-checks README + version.json
+    check_guide_readme_and_version(structure_file, g, args.paths, findings)
     # B.1 — кросс-руководная согласованность (внутри гайда)
     check_guide_cross_consistency(structure_file, g, guide_sections, findings)
     # B.2 — Bounded Context
@@ -1776,13 +1887,23 @@ def cmd_prerequisites_graph(args: argparse.Namespace) -> int:
         if not files:
             return report(findings, label="prerequisites-graph")
 
+        # Subagent-review FIX (H5): собрать known_ids_all для cross-section validation.
+        known_ids_all: set[str] = set()
+        target_section_obj: Section | None = None
+        target_file: Path | None = None
         for f in files:
             sections, parse_findings = parse_structure_file(f)
             findings.extend(parse_findings)
             for sec in sections:
+                for sub in sec.subsections:
+                    if sub.subsection_id:
+                        known_ids_all.add(sub.subsection_id)
                 if sec.guide == target_guide and sec.section == target_section:
-                    check_section_prerequisites_graph(f, sec, findings)
-                    return report(findings, label=f"prereq-graph section PD.GUIDE.{target_guide}.S{target_section}")
+                    target_section_obj = sec
+                    target_file = f
+        if target_section_obj is not None and target_file is not None:
+            check_section_prerequisites_graph(target_file, target_section_obj, findings, known_ids_all)
+            return report(findings, label=f"prereq-graph section PD.GUIDE.{target_guide}.S{target_section}")
 
         findings.append(Finding("error", Path("."), None,
                                 f"раздел PD.GUIDE.{target_guide}.S{target_section} не найден"))
