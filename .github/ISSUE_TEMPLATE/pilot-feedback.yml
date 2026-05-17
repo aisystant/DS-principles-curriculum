@@ -1,0 +1,163 @@
+name: 🟢 Pilot Feedback (WP-322 Ф5)
+description: Обратная связь от пилота после прохождения подраздела/раздела/руководства v4
+title: "[Pilot] <SS|S|G>: <id> — <короткое впечатление>"
+labels: ["pilot-feedback", "needs-review"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Спасибо за прохождение материала!
+
+        Этот шаблон собирает структурированную обратную связь по 6 критериям §🟢 из
+        `CHECKLIST-{subsection,section,guide}-v1.md`. Заполните только то, что
+        применимо к вашему уровню (подраздел / раздел / руководство).
+
+        **Правило приёмки:** ≥3 пилота × 6/6 → `pilot-approved` → merge staging-v4 → main.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Масштаб проверки
+      options:
+        - "Подраздел (SS)"
+        - "Раздел (S)"
+        - "Руководство целиком (G)"
+    validations:
+      required: true
+
+  - type: input
+    id: artifact_id
+    attributes:
+      label: ID артефакта
+      description: "PD.GUIDE.N.SX.SSY (подраздел) / PD.GUIDE.N.SX (раздел) / PD.GUIDE.N (руководство)"
+      placeholder: "PD.GUIDE.1.S6.SS1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Ваша ступень развития (cp/bh)
+      description: "По диагностике /diagnose-iwe или самооценка"
+      options:
+        - "1 — Случайный"
+        - "2 — Пробующий"
+        - "3 — Систематический"
+        - "4 — Дисциплинированный"
+        - "5 — Проактивный"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 6 критериев пилот-теста
+
+        Для каждого: **да / нет / частично** + (опционально) комментарий.
+
+  - type: dropdown
+    id: c1_mem
+    attributes:
+      label: "C.1 — Мем снят / Объект понятен"
+      description: "Понял о чём речь с первых 2-3 предложений (SS) / могу одной фразой назвать чему научил раздел (S) / могу одной фразой объяснить о чём руководство (G)"
+      options:
+        - "да"
+        - "нет"
+        - "частично"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: c2_method
+    attributes:
+      label: "C.2 — Метод применим / Прогрессия чувствуется"
+      description: "Могу начать делать сегодня, инструкция понятна (SS) / между подразделами не было «зачем сейчас это?» (S) / заметил что мой взгляд изменился между началом и концом (G)"
+      options:
+        - "да"
+        - "нет"
+        - "частично"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: c3_time
+    attributes:
+      label: "C.3 — Время соответствует / Нет повторов"
+      description: "Практика заняла заявленное время ±20% (SS) / не было ощущения «это уже было» (S, G)"
+      options:
+        - "да"
+        - "нет"
+        - "частично"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: c4_analogy
+    attributes:
+      label: "C.4 — Аналогия помогает / Завершённость / Нет «дыр»"
+      description: "Понял что-то новое через метафору (SS) / зона освоена, не «оборвалось на полуслове» (S) / не было моментов «нужная мне ситуация не покрыта» (G)"
+      options:
+        - "да"
+        - "нет"
+        - "частично"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: c5_barriers
+    attributes:
+      label: "C.5 — Нет барьеров / Метафоры помогают / Навигация работает"
+      description: "Текст без «что он имел в виду?» (SS) / сквозные образы поддерживают понимание (S) / нашёл нужный SS за <1 мин (G)"
+      options:
+        - "да"
+        - "нет"
+        - "частично"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: c6_shift
+    attributes:
+      label: "C.6 — Мировоззренческий сдвиг / Связь со ступенью"
+      description: "Вижу ситуацию иначе после подраздела (SS) / материал соответствует моей ступени (S) / вижу свою практику иначе чем в начале (G)"
+      options:
+        - "да"
+        - "нет"
+        - "частично"
+    validations:
+      required: true
+
+  - type: textarea
+    id: comments
+    attributes:
+      label: Комментарии / где застрял
+      description: "Опционально. Конкретные места в тексте, формулировки, аналогии — что зашло / не зашло"
+      placeholder: |
+        - SS3 параграф «Мем который снимается»: образ «вода в песке» — зашёл, помог понять
+        - SS5 практика на 25 мин: заняла 50 мин, недооценка
+        - § «дверь в бесконечность» отсутствует — не понятно куда дальше после ст. 5
+      render: markdown
+    validations:
+      required: false
+
+  - type: textarea
+    id: time_actual
+    attributes:
+      label: Фактическое время (опционально)
+      description: "Сколько реально потратили на чтение + практику"
+      placeholder: "Чтение: 18 мин, Практика: 35 мин (заявлено 15+15)"
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+
+        **После отправки:**
+        - Workflow автоматически добавит label `needs-rework` если ≥1 ответ «нет»
+        - При 6/6 «да» — label `passed-pilot` (если суммарно ≥3 такого подраздела → автор ставит `pilot-approved`)
+        - Author и CODEOWNERS автоматически назначаются reviewer'ами

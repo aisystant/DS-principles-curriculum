@@ -1,0 +1,91 @@
+name: "📦 Pack обновлён — проверить drift"
+description: "Автоматическое создание при изменении PD.FORM.089 в PACK-personal. Содержит таблицу drift между Pack и подразделами руководств v4."
+title: "[Pack-drift] PACK-personal обновлён: ${{pack_hash}} (${{date}})"
+labels:
+  - pack-drift
+  - needs-author-review
+  - automated
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Pack обновлён, требуется ревизия подразделов
+
+        Этот issue создан автоматически Pack-watcher pipeline (WP-322 Ф1) после коммита в `PACK-personal/.../PD.FORM.089-learner-rcs.md`.
+
+        **Что делать автору:**
+        1. Прочитать таблицу drift (ниже).
+        2. Для каждого затронутого подраздела — открыть SS-файл, обновить `introduces`/`uses`/`cp_check`/`bh_check`.
+        3. Запустить локально: `python3 tools/v4-lint.py pack-drift --pack <PD.FORM.089>` (когда WP-321 готов).
+        4. Закоммитить изменения подразделов одним PR с тегом `[pack-sync]`.
+        5. Закрыть этот issue.
+
+  - type: input
+    id: pack_hash
+    attributes:
+      label: Pack hash
+      description: "Хэш файла PD.FORM.089 после изменения"
+      placeholder: "e.g. 51c24963"
+    validations:
+      required: true
+
+  - type: input
+    id: pack_commit
+    attributes:
+      label: Pack commit URL
+      description: "Ссылка на коммит в PACK-personal"
+      placeholder: "https://github.com/.../commit/..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: drift_table
+    attributes:
+      label: Drift таблица
+      description: "Структурированный JSON output из stub-pack-drift.sh"
+      placeholder: |
+        ```json
+        {
+          "drift_count": N,
+          "items": [...]
+        }
+        ```
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected_subsections
+    attributes:
+      label: Затронутые подразделы
+      description: "Список subsection_id, требующих обновления"
+      placeholder: |
+        - PD.GUIDE.1.S5.SS01
+        - PD.GUIDE.1.S5.SS02
+        - ...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: "Оценка критичности drift"
+      options:
+        - info (косметика / stub)
+        - low (1-3 подраздела, minor поля)
+        - medium (4-10 подразделов, или изменилось определение узла)
+        - high (>10 подразделов или изменилась структура FORM.089)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Действия автора
+      options:
+        - label: "Прочитал таблицу drift"
+        - label: "Обновил затронутые SS-файлы"
+        - label: "Локальный v4-lint прошёл PASS"
+        - label: "Создан PR с тегом [pack-sync]"

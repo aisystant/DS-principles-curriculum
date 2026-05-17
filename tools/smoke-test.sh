@@ -9,6 +9,12 @@ LINT="$SCRIPT_DIR/v4-lint.py"
 VALID="$SCRIPT_DIR/fixtures/valid"
 BROKEN="$SCRIPT_DIR/fixtures/broken"
 BROKEN_ORDER="$SCRIPT_DIR/fixtures/broken-order"
+SS_VALID="$SCRIPT_DIR/fixtures/single-ss-valid/1-1-1-example.md"
+SS_VALID_AUX="$SCRIPT_DIR/fixtures/single-ss-valid/1-1-8-auxiliary.md"
+SS_BROKEN="$SCRIPT_DIR/fixtures/single-ss-broken/1-1-1-broken.md"
+SS_BARE_SCALAR="$SCRIPT_DIR/fixtures/single-ss-broken/1-1-2-bare-scalar.md"
+SS_NO_FRONTMATTER="$SCRIPT_DIR/fixtures/single-ss-broken/1-1-3-no-frontmatter.md"
+SS_MISSING_META="$SCRIPT_DIR/fixtures/single-ss-broken/1-1-4-missing-meta.md"
 PACK_FORM089="${PACK_FORM089:-$HOME/IWE/PACK-personal/pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md}"
 
 PASS=0
@@ -56,10 +62,10 @@ assert_grep "омоним" "омоним обнаружен"
 assert_grep "начинается с" "имя в скобках обнаружено"
 assert_grep "неизвестный маркер" "unknown marker FAIL"
 assert_grep "без маркера-двоеточия" "malformed bullet FAIL"
-assert_grep "вводится 4 понятий" "A.11 Ontological Parsimony WARN"
+assert_grep "вводится 4 понятий" "STRUCT-PARSIMONY WARN (legacy code A.11, не путать с CHECKLIST A.11)"
 assert_grep "Эффект Земмельвейса" "кейс в introduces FAIL (Земмельвейс)"
 assert_grep "Хохланд" "кейс в introduces FAIL (Хохланд)"
-assert_grep "без источника Pack" "A.10 Evidence Graph WARN"
+assert_grep "без источника Pack" "STRUCT-EVIDENCE WARN (legacy code A.10, не путать с CHECKLIST A.10)"
 
 echo "=== structure: broken-order → exit 1 (S1, S10, S2 не отсортирован) ==="
 assert_exit 1 "structure(broken-order)" python3 "$LINT" structure "$BROKEN_ORDER"
@@ -79,6 +85,42 @@ assert_grep "U.\*-тип" "introduces содержит U.* префикс"
 assert_grep "can_do элемент не начинается с «Могу»" "can_do без «Могу» (multi-line YAML работает)"
 assert_grep "prerequisite.*не найден" "prereq на несуществующий ID"
 assert_grep "iwe.* запрещён в руководствах" "A.1.1 Bounded Context — iwe в guide 1 запрещён"
+
+# ============================================================================
+# porter single-SS mode (Ф3.7: CHECKLIST режим v4-lint porter <ss-file.md>)
+# ============================================================================
+echo "=== porter single-SS: valid → exit 0 ==="
+assert_exit 0 "porter(single-ss-valid)" python3 "$LINT" porter "$SS_VALID"
+
+echo "=== porter single-SS: broken → exit 1 + ожидаемые FAIL (A.10/A.11/B.9) ==="
+assert_exit 1 "porter(single-ss-broken)" python3 "$LINT" porter "$SS_BROKEN"
+assert_grep "отсутствует \`format_version\`" "B.9 FAIL: format_version отсутствует"
+assert_grep "запрещены шифры Pack" "A.10 FAIL: шифр Pack в introduces"
+assert_grep "запрещены RCS-индексы" "A.10 FAIL: cp.* в introduces"
+assert_grep "содержит legacy-маркер" "A.11 FAIL: § в prerequisites"
+
+echo "=== porter single-SS: bare-scalar обход (Б2) → exit 1 + A.10/A.11 FAIL ==="
+assert_exit 1 "porter(single-ss-bare-scalar)" python3 "$LINT" porter "$SS_BARE_SCALAR"
+assert_grep "запрещены шифры Pack «PD.FORM.089»" "A.10 FAIL даже на bare-scalar introduces"
+assert_grep "содержит legacy-маркер" "A.11 FAIL даже на bare-scalar prerequisites"
+
+echo "=== porter single-SS: нет frontmatter → exit 1 ==="
+assert_exit 1 "porter(single-ss-no-frontmatter)" python3 "$LINT" porter "$SS_NO_FRONTMATTER"
+assert_grep "должен начинаться с frontmatter" "no-frontmatter явно отловлен"
+
+echo "=== porter single-SS: 5 mandatory meta-полей отсутствуют (Б3) → exit 1 ==="
+assert_exit 1 "porter(single-ss-missing-meta)" python3 "$LINT" porter "$SS_MISSING_META"
+assert_grep "обязательное meta-поле \`time_reading\`" "B.9 FAIL: time_reading"
+assert_grep "обязательное meta-поле \`time_practice\`" "B.9 FAIL: time_practice"
+assert_grep "обязательное meta-поле \`word_count_target\`" "B.9 FAIL: word_count_target"
+assert_grep "обязательное meta-поле \`status\`" "B.9 FAIL: status"
+assert_grep "обязательное meta-поле \`wp\`" "B.9 FAIL: wp"
+
+echo "=== porter single-SS: auxiliary (.SS8 + format_version 4.1-aux) → exit 0 (B.9 не применяется) ==="
+assert_exit 0 "porter(single-ss-auxiliary)" python3 "$LINT" porter "$SS_VALID_AUX"
+
+echo "=== porter mixed targets (structure + single-SS) → exit 0 ==="
+assert_exit 0 "porter(mixed)" python3 "$LINT" porter "$VALID" "$SS_VALID"
 
 # ============================================================================
 # cross-guide

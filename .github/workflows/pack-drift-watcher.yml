@@ -1,0 +1,115 @@
+name: Pack Drift Watcher
+
+# WP-322 Ф1.2 (Pack-watcher cross-repo receiver).
+# Triggered by:
+#   - repository_dispatch event-type=pack-drift-check (от PACK-personal/notify-curriculum.yml)
+#   - workflow_dispatch (ручной запуск для теста)
+#
+# Проверяет drift между PACK-personal/PD.FORM.089 и подразделами руководств v4.
+# При drift > 0 — создаёт issue по шаблону .github/ISSUE_TEMPLATE/pack-drift.yml.
+
+on:
+  repository_dispatch:
+    types: [pack-drift-check]
+  workflow_dispatch:
+    inputs:
+      pack_path:
+        description: 'Локальный путь к PD.FORM.089 для ручного теста'
+        required: false
+        default: 'pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md'
+
+jobs:
+  check-drift:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Checkout DS-principles-curriculum
+        uses: actions/checkout@v4
+        with:
+          path: curriculum
+
+      - name: Checkout PACK-personal
+        uses: actions/checkout@v4
+        with:
+          repository: TserenTserenov/PACK-personal
+          token: ${{ secrets.PACK_READ_TOKEN || github.token }}
+          path: pack-personal
+
+      - name: Run stub-pack-drift
+        id: drift
+        run: |
+          PACK_FILE="pack-personal/pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md"
+          if [[ ! -f "$PACK_FILE" ]]; then
+            echo "ERROR: Pack file not found: $PACK_FILE" >&2
+            exit 1
+          fi
+
+          DRIFT_JSON=$(bash curriculum/tools/stub-pack-drift.sh --pack "$PACK_FILE" --curriculum curriculum --verbose)
+          echo "$DRIFT_JSON" > /tmp/drift.json
+
+          DRIFT_COUNT=$(echo "$DRIFT_JSON" | jq -r '.drift_count')
+          PACK_HASH=$(echo "$DRIFT_JSON" | jq -r '.pack_hash')
+
+          echo "drift_count=$DRIFT_COUNT" >> "$GITHUB_OUTPUT"
+          echo "pack_hash=$PACK_HASH" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "drift_json<<DRIFT_EOF"
+            cat /tmp/drift.json
+            echo "DRIFT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Drift count: $DRIFT_COUNT, Pack hash: $PACK_HASH"
+
+      - name: Create issue if drift > 0
+        if: steps.drift.outputs.drift_count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRIFT_COUNT: ${{ steps.drift.outputs.drift_count }}
+          PACK_HASH: ${{ steps.drift.outputs.pack_hash }}
+          PACK_COMMIT_URL: ${{ github.event.client_payload.pack_commit_url || 'manual-dispatch' }}
+        run: |
+          TITLE="[Pack-drift] PACK-personal обновлён: ${PACK_HASH} ($(date -u +%Y-%m-%d))"
+
+          BODY=$(cat <<EOF
+          ## Pack обновлён, требуется ревизия подразделов
+
+          Этот issue создан автоматически Pack-watcher pipeline (WP-322 Ф1).
+
+          **Pack hash:** \`${PACK_HASH}\`
+          **Pack commit:** ${PACK_COMMIT_URL}
+          **Drift count:** ${DRIFT_COUNT}
+
+          ### Drift таблица
+
+          \`\`\`json
+          $(cat /tmp/drift.json)
+          \`\`\`
+
+          ### Действия автора
+
+          - [ ] Прочитать таблицу drift
+          - [ ] Обновить затронутые SS-файлы
+          - [ ] Локальный v4-lint прошёл PASS (когда WP-321 готов)
+          - [ ] Создан PR с тегом \`[pack-sync]\`
+
+          ---
+
+          *Triggered by: \`${{ github.event_name }}\` from \`${{ github.event.client_payload.trigger_repo || 'manual' }}\`*
+          EOF
+          )
+
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "$TITLE" \
+            --body "$BODY" \
+            --label "pack-drift,needs-author-review,automated"
+
+          echo "✅ Issue created"
+
+      - name: No-op log if no drift
+        if: steps.drift.outputs.drift_count == '0'
+        run: |
+          echo "✅ No drift detected (drift_count=0). No issue created."

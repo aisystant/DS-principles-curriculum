@@ -1,0 +1,25 @@
+# CODEOWNERS — DS-principles-curriculum
+#
+# Auto-assignment для PR и issue. Один владелец на одну зону.
+# Pack-drift issue → автор руководства, к которому относится затронутый mastery_node.
+
+# По умолчанию — владелец репо
+*                                       @TserenTserenov
+
+# Руководства (каждое — отдельный mastery_node)
+specs/v4-reference/01-*                  @TserenTserenov
+specs/v4-reference/02-*                  @TserenTserenov
+specs/v4-reference/03-*                  @TserenTserenov
+specs/v4-reference/04-*                  @TserenTserenov
+
+# Чек-листы и методические артефакты — владелец процесса
+specs/v4-reference/CHECKLIST-*           @TserenTserenov
+specs/v4-reference/CHECKLISTS-README.md  @TserenTserenov
+specs/v4-reference/CD-PIPELINE.md        @TserenTserenov
+PROCESSES.md                             @TserenTserenov
+
+# Инструменты v4-lint и Pack-watcher
+tools/                                   @TserenTserenov
+
+# CI/CD
+.github/                                 @TserenTserenov

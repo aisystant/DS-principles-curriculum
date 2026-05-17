@@ -267,6 +267,7 @@ program:
 - [ ] Ссылки на MIM.M.* актуальны
 - [ ] Тестовые вопросы привязаны к can-do ячеек
 - [ ] README обновлён (статус заполнения)
+- [ ] `structure-guide-*.md`: `<summary>` спойлера совпадает с `## H2` раздела (канон — H2). Линт: `python3 tools/normalize-structure-guide.py --mode lint specs/v4-reference/0*-structure-guide-*.md`
 
 ---
 

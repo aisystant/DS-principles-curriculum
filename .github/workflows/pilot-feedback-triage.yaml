@@ -1,0 +1,98 @@
+name: Pilot Feedback Auto-Triage (WP-322 Ф5)
+
+# Парсит тело issue с label pilot-feedback и автоматически добавляет:
+#   - needs-rework если ≥1 ответ "нет"
+#   - passed-pilot если 6/6 ответов "да"
+# CODEOWNERS обеспечивает auto-assign reviewers.
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  triage:
+    if: contains(github.event.issue.labels.*.name, 'pilot-feedback')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Parse and label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            // Issue Form v2 рендерит выпадающие как:
+            //   ### C.X — заголовок
+            //   <ответ>
+            // Извлекаем все строки прямо после заголовков ### C.\d
+            const matches = body.match(/^### C\.\d.*\n+([^\n]+)/gm) || [];
+            const answers = matches.map(m => {
+              const ans = m.split('\n').filter(l => l.trim() && !l.startsWith('#'))[0];
+              return (ans || '').trim().toLowerCase();
+            });
+
+            const noCount = answers.filter(a => a === 'нет').length;
+            const yesCount = answers.filter(a => a === 'да').length;
+            const partialCount = answers.filter(a => a === 'частично').length;
+
+            core.info(`Parsed: yes=${yesCount}, no=${noCount}, partial=${partialCount}`);
+
+            const labelsToAdd = [];
+            const labelsToRemove = [];
+
+            if (noCount >= 1 || partialCount >= 3) {
+              labelsToAdd.push('needs-rework');
+              labelsToRemove.push('passed-pilot');
+            } else if (yesCount === 6) {
+              labelsToAdd.push('passed-pilot');
+              labelsToRemove.push('needs-rework');
+            }
+
+            for (const lbl of labelsToAdd) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  labels: [lbl],
+                });
+              } catch (e) {
+                core.warning(`Не удалось добавить label ${lbl}: ${e.message}`);
+              }
+            }
+            for (const lbl of labelsToRemove) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: lbl,
+                });
+              } catch (e) {
+                // 404 = label was not present, нормально
+                if (!e.message.includes('Label does not exist')) {
+                  core.info(`Label ${lbl} не было — пропускаю`);
+                }
+              }
+            }
+
+            // Сводный комментарий при первом opened
+            if (context.payload.action === 'opened') {
+              const summary = `## 📊 Автоматический triage\n\n` +
+                `- ✅ Да: ${yesCount}/6\n` +
+                `- ❌ Нет: ${noCount}/6\n` +
+                `- ⚠️ Частично: ${partialCount}/6\n\n` +
+                `**Решение:** ${
+                  noCount >= 1 || partialCount >= 3
+                    ? '`needs-rework` — автор пересматривает по комментариям'
+                    : yesCount === 6
+                      ? '`passed-pilot` — учитывается в счёт ≥3 пилотов для pilot-approved'
+                      : 'смешанный результат — нужно ручное ревью автора'
+                }`;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary,
+              });
+            }
