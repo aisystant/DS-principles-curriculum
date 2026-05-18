@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# pre-commit hook: запускает v4-lint structure + porter на staged файлах в specs/v4-reference/.
+# pre-commit hook: запускает v4-lint structure + porter на staged файлах.
 # Установка: ln -s ../../tools/pre-commit-v4-lint.sh .git/hooks/pre-commit
+#
+# Проверяет:
+#   1. Структурные гайды в specs/v4-reference/ — structure + porter
 
 set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 LINT="$REPO_ROOT/tools/v4-lint.py"
 
-if [[ ! -x "$LINT" ]]; then
-  echo "v4-lint: $LINT не исполняемый — пропускаю pre-commit"
+if [[ ! -f "$LINT" ]]; then
+  echo "v4-lint: $LINT не найден — пропускаю pre-commit"
   exit 0
 fi
 
