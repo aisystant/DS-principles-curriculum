@@ -11,12 +11,24 @@ on:
     paths:
       - 'specs/v4-reference/**'
       - 'tools/v4-lint.py'
+  schedule:
+    # Еженедельный periodic audit: понедельник 09:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout curriculum repo
+        uses: actions/checkout@v4
+
+      - name: Checkout PACK-personal repo
+        uses: actions/checkout@v4
+        with:
+          repository: aisystant/PACK-personal
+          path: PACK-personal
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -32,12 +44,10 @@ jobs:
       - name: cross-guide (Этап 10)
         run: python3 tools/v4-lint.py cross-guide specs/v4-reference/
 
+      - name: pack-drift (Этап 14)
+        run: |
+          python3 tools/v4-lint.py pack-drift specs/v4-reference/ \
+            --pack PACK-personal/pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md
+
       - name: smoke-test (фикстуры)
         run: bash tools/smoke-test.sh
-
-      # pack-drift (Этап 14) — требует sibling-checkout PACK-personal.
-      # Включается отдельным шагом когда репо PACK-personal будет доступен в CI.
-      # - name: pack-drift (Этап 14)
-      #   run: |
-      #     python3 tools/v4-lint.py pack-drift specs/v4-reference/ \
-      #       --pack ../PACK-personal/pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md
