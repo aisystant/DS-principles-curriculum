@@ -28,7 +28,7 @@ jobs:
         with:
           repository: aisystant/PACK-personal
           path: PACK-personal
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PACK_READ_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
