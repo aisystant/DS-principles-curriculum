@@ -13,7 +13,7 @@ updated: 2026-05-16
 | Что | Где | Репо | Путь |
 |-----|-----|------|------|
 | **Программа ЛР** | Нарратив, ступени, узлы, механика | `DS-my-strategy` | `inbox/WP-245-personal-development-program.md` |
-| **Текущие руководства** | Уже написанные программы, персональные гайды | `aisystant/docs` | `docs/ru/personal-new/` |
+| **Текущие руководства** | Уже написанные программы, персональные гайды | `aisystant/docs` | `docs/ru/personal-design/` |
 | **Паки** | Онтология, FORM, METHOD, CAT, SOTA | `PACK-personal` | `pack/personal-development/` |
 | **Ролевая траектория** | Дуга нарратива, фазы, Навигатор | `.claude` | `rules/role-prefixes.md` (Навигатор R27) |
 | **Онтология Созидателя** | cp/bh-пороги, три узла, К4 fix | `PACK-personal` | `PD.FORM.089 v4`, `PD.FORM.088` |
@@ -22,7 +22,7 @@ updated: 2026-05-16
 | **РП300** | Реестр понятий, структура 4 руководств | `DS-principles-curriculum` | `specs/v4-reference/07-concept-candidates-v4.md` |
 | **Карта старого→нового** | Маппинг старых руководств на v4 | `DS-principles-curriculum` | `specs/v4-reference/05-mapping-old-to-new.md` |
 
-**Правило:** финальный текст подраздела коммитится в `aisystant/docs/docs/ru/personal-new/`. Черновики, структура и конвейер — в `aisystant/DS-principles-curriculum/specs/v4-reference/`. Не писать финальные тексты в `DS-principles-curriculum/docs/v4/` (это draft, удалён).
+**Правило:** финальный текст подраздела коммитится в `aisystant/docs/docs/ru/personal-design/`. Черновики, структура и конвейер — в `aisystant/DS-principles-curriculum/specs/v4-reference/`. Не писать финальные тексты в `DS-principles-curriculum/docs/v4/` (это draft, удалён).
 
 ---
 
@@ -68,7 +68,7 @@ Commit → PR → Merge
 
 Перед написанием нового подраздела автор обязан знать, что уже существует:
 
-- **Текущие руководства** (`aisystant/docs/docs/ru/personal-new/`) — устаревшие версии программы ЛР, которые v4 заменяет. Проверить: не дублирует ли новый подраздел то, что уже есть в старых руководствах.
+- **Текущие руководства** (`aisystant/docs/docs/ru/personal-design/`) — устаревшие версии программы ЛР, которые v4 заменяет. Проверить: не дублирует ли новый подраздел то, что уже есть в старых руководствах.
 - **РП245 (Программа личного развития)** — единый нарратив: дуга «от собранности к созиданию», два столпа (мировоззрение + методы), механика «мем → метод → мировоззрение».
 - **РП300 (Универсальные руководства)** — реестр понятий (`07-concept-candidates-v4.md`), структура 4 руководств, concept maps, mapping старого→нового (`05-mapping-old-to-new.md`).
 - **Рабочее развитие** — программа, следующая за ЛР. Каждое руководство v4 должно иметь в конце раздел «Что дальше», указывающий, какие методы и навыки переходят туда.
@@ -504,7 +504,7 @@ FAIL если понятие `вводится` >1 раз (нарушен при
 | Слой | Что | Куда | Команда |
 |------|-----|------|---------|
 | Структура (frontmatter + строка «Понятия:») | `NN-structure-guide-N.md` | `DS-principles-curriculum/specs/v4-reference/` | `git add specs/v4-reference/NN-structure-guide-N.md` |
-| Финальный текст подраздела | Готовый markdown с практиками | `aisystant/docs/docs/ru/personal-new/` | `git add docs/ru/personal-new/<file>.md` |
+| Финальный текст подраздела | Готовый markdown с практиками | `aisystant/docs/docs/ru/personal-design/` | `git add docs/ru/personal-design/<file>.md` |
 
 Структура и текст идут в **разных репо**: linter (v4-lint) работает только со структурой. Финальный текст — артефакт публикации, валидируется ручной приёмкой и пилот-тестом.
 
@@ -514,8 +514,8 @@ git -C ~/IWE/DS-principles-curriculum add specs/v4-reference/NN-structure-guide-
 git -C ~/IWE/DS-principles-curriculum commit -m "feat(guide-N): subsection X.Y — [название]"
 
 # Финальный текст (в aisystant)
-git -C ~/IWE/DS-IT-systems/aisystant add docs/ru/personal-new/<file>.md
-git -C ~/IWE/DS-IT-systems/aisystant commit -m "feat(personal-new): subsection X.Y — [название]"
+git -C ~/IWE/DS-IT-systems/aisystant add docs/ru/personal-design/<file>.md
+git -C ~/IWE/DS-IT-systems/aisystant commit -m "feat(personal-design): subsection X.Y — [название]"
 ```
 
 ### Чек-лист приёмки перед merge

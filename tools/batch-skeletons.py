@@ -2,7 +2,7 @@
 """batch-skeletons.py — массовая генерация skeleton для руководств v4.
 
 Usage:
-  python3 batch-skeletons.py --guide 2 --structure specs/v4-reference/02-structure-guide-2.md --out-dir docs/ru/personal-new/1-2-self-development-methods/
+  python3 batch-skeletons.py --guide 2 --structure specs/v4-reference/02-structure-guide-2.md --out-dir docs/ru/personal-design/1-2-self-development-methods/
 """
 from __future__ import annotations
 

@@ -22,7 +22,7 @@ upstream: [WP-321, WP-300]
 | **Входы** | `structure-guide-N.md` (структура) + `PACK-personal/ontology.md` (понятия) + `role-prefixes.md` (дуга нарратива) + `PD.FORM.089` (метрики) + опционально draft текста подраздела |
 | **Выходы** | (1) Build: собранный markdown подраздела в staging; (2) Validation: PASS/FAIL по 4 этапам v4-lint; (3) Pack-drift: список расхождений после смены Pack; (4) Promote: merge staging → prod после 3/3 пилот-теста |
 | **Время отклика** | ≤2 мин от коммита до finish CI; ≤15 мин до build draft в staging; ≤30 мин до уведомления пилота; ≤7 дней до prod (зависит от пилот-теста) |
-| **Инвариант** | Ни один подраздел не попадает в `docs/ru/personal-new/` без: (а) **Pack-sufficiency** (все понятия `introduces` есть в `PACK-personal/ontology.md` §2 + имеют Pack-источник `PD.FORM/METHOD/CAT.NNN` — `v4-lint structure --strict-pack`, см. PD.FORM.103 Этап 3.5 + WRITING-PIPELINE §1.5); (б) PASS всех 4 v4-lint валидаторов (structure, porter, cross-guide, pack-drift) + FPF (Ф10); (в) PASS субагент-ревью (Этап 9 WRITING-PIPELINE); (г) 6/6 от ≥3 пилотов (Этап 11). Hotfix-исключение: typo-only с тегом `[hotfix]` — только pre-commit + auto-merge, но Pack-sufficiency (а) обязательна и для hotfix |
+| **Инвариант** | Ни один подраздел не попадает в `docs/ru/personal-design/` без: (а) **Pack-sufficiency** (все понятия `introduces` есть в `PACK-personal/ontology.md` §2 + имеют Pack-источник `PD.FORM/METHOD/CAT.NNN` — `v4-lint structure --strict-pack`, см. PD.FORM.103 Этап 3.5 + WRITING-PIPELINE §1.5); (б) PASS всех 4 v4-lint валидаторов (structure, porter, cross-guide, pack-drift) + FPF (Ф10); (в) PASS субагент-ревью (Этап 9 WRITING-PIPELINE); (г) 6/6 от ≥3 пилотов (Этап 11). Hotfix-исключение: typo-only с тегом `[hotfix]` — только pre-commit + auto-merge, но Pack-sufficiency (а) обязательна и для hotfix |
 | **Режим отказа** | FAIL build/lint → GitHub issue автору с диагностикой; FAIL pilot → откат в staging с тегом `needs-rework`; Pack-drift → issue с местами, требующими обновления, без блокировки текущей работы |
 
 ---
@@ -59,7 +59,7 @@ upstream: [WP-321, WP-300]
 1. `workflow_dispatch` с параметром `subsection_id=PD.GUIDE.1.S2.SS3`
 2. Build action собирает контекст: structure-guide + понятия + role-prefixes + промпт из WRITING-PIPELINE Этап 4
 3. Вызов Claude API → markdown draft
-4. PR в `aisystant/docs` с draft в `docs/ru/personal-new-staging/1-2/02-03.md`
+4. PR в `aisystant/docs` с draft в `docs/ru/personal-design-staging/1-2/02-03.md`
 5. Автор-ревьюер правит → merge в staging
 
 **Пересечение:** WP-149 «Система генерации руководств» (Кими) делает ровно это. Перед началом — выяснить, что у него готово.
@@ -90,7 +90,7 @@ upstream: [WP-321, WP-300]
 
 **Потребитель:** автор, заметивший опечатку.
 
-1. Direct PR с тегом `[hotfix]` в `docs/ru/personal-new/`
+1. Direct PR с тегом `[hotfix]` в `docs/ru/personal-design/`
 2. CI: только структурные тесты (без полного rebuild)
 3. PASS → auto-merge без пилот-теста (typo не требует пилота)
 4. TG-notification владельцу: «hotfix залит»
@@ -121,7 +121,7 @@ upstream: [WP-321, WP-300]
 | # | Спринт | Бюджет | Приоритет | Что даёт |
 |---|--------|--------|-----------|----------|
 | 1 | **Pack-watcher** (cross-repo trigger PACK-personal → DS-principles-curriculum) | 4-6h | 🔴 высокий | Pack ↔ Curriculum связка хрупкая, drift накапливается невидимо. Самая дешёвая и ценная автоматика |
-| 2 | **Staging environment** (ветка `staging-v4` + папка `personal-new-staging/`) | 6-8h | 🔴 высокий | Фундамент для всего CD — без staging нет deploy gate |
+| 2 | **Staging environment** (ветка `staging-v4` + папка `personal-design-staging/`) | 6-8h | 🔴 высокий | Фундамент для всего CD — без staging нет deploy gate |
 | 3 | **Deterministic Build** (структура + Pack → markdown draft через шаблонизацию, без LLM) | 4-6h | 🟡 средний | Дешёвая версия сборщика — Скелет подраздела без AI |
 | 4 | **LLM Build** (Claude API + промпт из WRITING-PIPELINE Этап 4) | 6-8h | 🔴 высокий | Главный rebenefit. Пересекается с WP-149 (Кими) — координировать |
 | 5 | **Pilot feedback loop** (issue templates + label automation) | 3-4h | 🟡 средний | Без него пилот-фидбек теряется в TG |
@@ -162,7 +162,7 @@ upstream: [WP-321, WP-300]
 
 ## Открытые вопросы
 
-1. **Куда коммитить финальный текст?** Сейчас: `aisystant/docs/docs/ru/personal-new/`. Structure: `DS-principles-curriculum/specs/v4-reference/`. Разделение source vs build artifact — стандарт. WRITING-PIPELINE Этап 13 этого явно не подчёркивает (был замечен в первичной проверке Кими).
+1. **Куда коммитить финальный текст?** Сейчас: `aisystant/docs/docs/ru/personal-design/`. Structure: `DS-principles-curriculum/specs/v4-reference/`. Разделение source vs build artifact — стандарт. WRITING-PIPELINE Этап 13 этого явно не подчёркивает (был замечен в первичной проверке Кими).
 2. **Куда писать build-логи / staging-метаданные?** Github Actions logs vs отдельный лог в репо?
 3. **Кто owner субагент-ревью (Этап 9)?** Сейчас вызывается автором вручную. Можно автоматизировать через `claude-code` в CI, но это требует API budget.
 4. **Pilot-pool dynamic.** Сейчас 3 фиксированных пилота. При >10 руководств одновременно — нужна ротация. Кто пишет алгоритм?

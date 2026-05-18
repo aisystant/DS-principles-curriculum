@@ -230,8 +230,8 @@ upstream: [WP-322, CD-PIPELINE.md]
 | Structure-файлы (source) | Вход → Конвейер | Markdown | `DS-principles-curriculum/specs/v4-reference/` |
 | Pack (онтология + метрики) | Вход → Конвейер | Markdown | `PACK-personal/` |
 | Role-prefixes (дуга) | Вход → Конвейер | Markdown | `DS-principles-curriculum/specs/v4-reference/role-prefixes.md` |
-| Draft (staging) | Выход → Автор | Markdown | `aisystant/docs:staging-v4/docs/ru/personal-new-staging/` |
-| Final text (prod) | Выход → Пилот | Markdown | `aisystant/docs:main/docs/ru/personal-new/` |
+| Draft (staging) | Выход → Автор | Markdown | `aisystant/docs:staging-v4/docs/ru/personal-design-staging/` |
+| Final text (prod) | Выход → Пилот | Markdown | `aisystant/docs:main/docs/ru/personal-design/` |
 | CI-логи | Выход → Диагностика | Text / JSON | GitHub Actions logs (retention 90 дней) |
 | GitHub issues (drift, feedback) | Выход → Автор | Markdown | `DS-principles-curriculum/issues` |
 | version.json | Внутренний | JSON | `aisystant/docs/version.json` |
@@ -303,12 +303,12 @@ upstream: [WP-322, CD-PIPELINE.md]
 
 **ВДВ:**
 - **Вход:** Merge в `aisystant/docs:staging-v4` или trigger из `DS-principles-curriculum`
-- **Действие:** Build + deploy в `personal-new-staging/`
+- **Действие:** Build + deploy в `personal-design-staging/`
 - **Выход:** Доступный по URL staging-контент
 
 **Чеклист:**
 - [ ] Ветка `staging-v4` в `aisystant/docs`
-- [ ] Папка `docs/ru/personal-new-staging/`
+- [ ] Папка `docs/ru/personal-design-staging/`
 - [ ] `.github/workflows/staging-deploy.yml`
 - [ ] Gate: merge staging → main только через label `pilot-approved` (ручной пока)
 - [ ] Тест: push в staging → контент виден по URL

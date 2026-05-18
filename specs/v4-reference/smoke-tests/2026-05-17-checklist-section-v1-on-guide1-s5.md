@@ -5,7 +5,7 @@ type: smoke-test
 status: passed
 date: 2026-05-17
 checklist: CHECKLIST-section-v1.md v1.0 (§🟡)
-section_under_test: docs/docs/ru/personal-new/1-1-systemic-self-development/s5-creator-roles/
+section_under_test: docs/docs/ru/personal-design/1-1-systemic-self-development/s5-creator-roles/
 related: [WP-322, WP-300]
 ---
 

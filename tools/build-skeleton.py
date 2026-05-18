@@ -10,7 +10,7 @@
 Usage:
   python3 build-skeleton.py --id PD.GUIDE.1.S6.SS1 \\
     --structure specs/v4-reference/01-structure-guide-1.md \\
-    --out docs/ru/personal-new-staging/.../6.01-five-stages.md
+    --out docs/ru/personal-design-staging/.../6.01-five-stages.md
 
 Если --out не указан — печать в stdout.
 """
