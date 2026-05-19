@@ -8,7 +8,9 @@ name: auto-merge
 # Если оба условия выполнены → squash-merge без ручного нажатия.
 #
 # Предусловие (action пилота): в branch protection rule `main` должны быть
-# required checks: structure, porter, cross-guide, pack-drift, pack-gap, smoke-test.
+# required checks (после Ф12 matrix-параллелизм):
+#   lint (structure) / lint (porter) / lint (cross-guide) / lint (pack-drift)
+#   pack-gap / smoke-test / completeness
 # Для hotfix-PR исключение pilot-approved НЕ требуется (лейбл = proof-of-intent).
 
 on:

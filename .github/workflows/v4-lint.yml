@@ -18,6 +18,7 @@ on:
 
 jobs:
   lint:
+    name: lint (${{ matrix.check.name }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
