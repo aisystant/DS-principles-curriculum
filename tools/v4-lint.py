@@ -690,23 +690,24 @@ def check_porter_frontmatter(sub: Subsection, known_ids: set[str], findings: lis
 
     # B.9 — отсутствие format_version.
     # CHECKLIST v1.1 §B.9: «FAIL если отсутствует в main; WARN в auxiliary».
-    # Архитектурное различение: B.9 как FAIL применяется ТОЛЬКО к одиночным SS-файлам (content в aisystant/docs).
+    # Архитектурное различение: B.9 применяется ТОЛЬКО к одиночным SS-файлам (content в aisystant/docs).
     # В structure-guide-N.md frontmatter подразделов — упрощённый онтологический контракт без content-полей;
-    # отсутствие format_version там — WARN (миграция корпуса = отдельный РП Ф0.9).
-    b9_severity_missing = "error" if (sub.from_single_ss and not is_aux) else "warning"
-    if not fmt_ver:
-        findings.append(Finding(
-            b9_severity_missing,
-            sub.file, sub.line_start,
-            f"{sub.subsection_id or '<no-id>'}: отсутствует `format_version` (B.9). "
-            f"Добавь `format_version: 4.1` (main) или `4.1-aux` (auxiliary).",
-        ))
-    elif fmt_ver not in ("4.1", "4.1-aux"):
-        findings.append(Finding(
-            "warning", sub.file, sub.line_start,
-            f"{sub.subsection_id or '<no-id>'}: неизвестный `format_version`: «{fmt_ver}». "
-            f"Ожидается 4.1 или 4.1-aux.",
-        ))
+    # format_version там не предусмотрен, поэтому пропускаем проверку B.9 для non-single-SS.
+    if sub.from_single_ss:
+        b9_severity_missing = "error" if not is_aux else "warning"
+        if not fmt_ver:
+            findings.append(Finding(
+                b9_severity_missing,
+                sub.file, sub.line_start,
+                f"{sub.subsection_id or '<no-id>'}: отсутствует `format_version` (B.9). "
+                f"Добавь `format_version: 4.1` (main) или `4.1-aux` (auxiliary).",
+            ))
+        elif fmt_ver not in ("4.1", "4.1-aux"):
+            findings.append(Finding(
+                "warning", sub.file, sub.line_start,
+                f"{sub.subsection_id or '<no-id>'}: неизвестный `format_version`: «{fmt_ver}». "
+                f"Ожидается 4.1 или 4.1-aux.",
+            ))
 
     # B.9 — остальные 5 mandatory meta-полей (только для single-SS-mode, main подразделы).
     # В structure-guide-N.md этих полей нет по дизайну (skeleton без content-метаданных).
