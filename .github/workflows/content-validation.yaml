@@ -1,0 +1,62 @@
+name: content-validation
+
+# WP-322 Ф11: Pack-sufficiency gate.
+# Проверяет, что все понятия из `вводится:` в structure-guide-N.md
+# зарегистрированы в PACK-personal/ontology.md §2.
+#
+# Запускается на PR (только structure-guide файлы) и при push в main.
+
+on:
+  pull_request:
+    paths:
+      - 'specs/v4-reference/*-structure-guide-*.md'
+      - 'tools/check-pack-gap.py'
+  push:
+    branches: [main]
+    paths:
+      - 'specs/v4-reference/*-structure-guide-*.md'
+  workflow_dispatch:
+
+jobs:
+  pack-gap:
+    name: Pack-sufficiency gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout DS-principles-curriculum
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout PACK-personal
+        uses: actions/checkout@v4
+        with:
+          repository: aisystant/PACK-personal
+          path: PACK-personal
+          token: ${{ secrets.PACK_READ_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run pack-gap (diff-mode for PR, full for push)
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            echo "PR-режим: проверяем только новые вводится относительно ${BASE}"
+            python3 tools/check-pack-gap.py specs/v4-reference/ \
+              --ontology PACK-personal/ontology.md \
+              --diff "${BASE}"
+          else
+            echo "Push-режим: полная проверка всех structure-guide файлов"
+            python3 tools/check-pack-gap.py specs/v4-reference/ \
+              --ontology PACK-personal/ontology.md
+          fi
+
+      - name: On failure — hint
+        if: failure()
+        run: |
+          echo "::error title=Pack-sufficiency gate FAIL::Добавьте отсутствующие понятия в PACK-personal/ontology.md §2 (Глоссарий домена) и создайте PR в PACK-personal."
+          echo ""
+          echo "Шаблон строки для ontology.md §2:"
+          echo "| **Понятие** | Определение. ≠ X, ≠ Y | U.Type | PD.FORM.NNN | forming |"
