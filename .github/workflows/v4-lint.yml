@@ -19,6 +19,14 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+          - {name: structure,  cmd: "python3 tools/v4-lint.py structure specs/v4-reference/"}
+          - {name: porter,     cmd: "python3 tools/v4-lint.py porter specs/v4-reference/"}
+          - {name: cross-guide, cmd: "python3 tools/v4-lint.py cross-guide specs/v4-reference/"}
+          - {name: pack-drift, cmd: "python3 tools/v4-lint.py pack-drift specs/v4-reference/ --pack PACK-personal/pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md"}
     steps:
       - name: Checkout curriculum repo
         uses: actions/checkout@v4
@@ -29,6 +37,23 @@ jobs:
           repository: aisystant/PACK-personal
           path: PACK-personal
           token: ${{ secrets.PACK_READ_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Run ${{ matrix.check.name }}
+        run: ${{ matrix.check.cmd }}
+
+  completeness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout curriculum repo
+        uses: actions/checkout@v4
 
       - name: Checkout aisystant/docs (для completeness check)
         uses: actions/checkout@v4
@@ -42,25 +67,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: structure (Этап 2)
-        run: python3 tools/v4-lint.py structure specs/v4-reference/
-
-      - name: porter (Этап 8)
-        run: python3 tools/v4-lint.py porter specs/v4-reference/
-
-      - name: cross-guide (Этап 10)
-        run: python3 tools/v4-lint.py cross-guide specs/v4-reference/
-
-      - name: pack-drift (Этап 14)
-        run: |
-          python3 tools/v4-lint.py pack-drift specs/v4-reference/ \
-            --pack PACK-personal/pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md
+      - name: Install dependencies
+        run: pip install pyyaml
 
       - name: completeness (WP-322 Ф3.11)
         run: |
-          # Проверяем что каждый SS из structure-guide имеет файл в aisystant/docs.
-          # DOCS_CONTENT_DIR — путь к руководствам личного развития.
-          # Если docs репо недоступен (приватный + нет токена) — шаг пропускается с предупреждением.
           DOCS_CONTENT="docs/docs/ru/personal-design"
           if [[ -d "$DOCS_CONTENT" ]]; then
             python3 tools/v4-lint.py completeness specs/v4-reference/ \
@@ -69,6 +80,20 @@ jobs:
             echo "::warning::completeness: $DOCS_CONTENT не найден — docs репо недоступен или структура изменилась"
             echo "::warning::completeness: проверка пропущена. Запустите локально: v4-lint.py completeness specs/v4-reference/ --content-dir <path-to-docs/docs/ru/personal-design>"
           fi
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout curriculum repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pyyaml
 
       - name: smoke-test (фикстуры)
         run: bash tools/smoke-test.sh
