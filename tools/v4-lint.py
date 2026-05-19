@@ -475,12 +475,13 @@ def check_introduces_limit(sections: list[Section], findings: list[Finding]) -> 
     for sec in sections:
         for sub in sec.subsections:
             intro_count = sum(1 for c in sub.concepts if c.get("marker") == "вводится")
-            if intro_count > STRUCT_PARSIMONY_INTRODUCES_LIMIT:
+            limit = sub.frontmatter.get("parsimony_limit", STRUCT_PARSIMONY_INTRODUCES_LIMIT)
+            if intro_count > limit:
                 names = [c.get("name", "?") for c in sub.concepts if c.get("marker") == "вводится"]
                 findings.append(Finding(
                     "warning", sub.file, sub.line_start,
                     f"{sub.subsection_id}: вводится {intro_count} понятий (предел STRUCT-PARSIMONY = "
-                    f"{STRUCT_PARSIMONY_INTRODUCES_LIMIT}). Список: {names}. Раздели на несколько подразделов "
+                    f"{limit}). Список: {names}. Раздели на несколько подразделов "
                     f"или пометь часть как `используется`.",
                 ))
 
@@ -599,7 +600,7 @@ def check_homonyms(by_guide: dict[int, list[Subsection]], findings: list[Finding
 
 PORTER_REQUIRED_FIELDS = ["subsection_id", "title", "cp_check", "bh_check"]
 PORTER_RECOMMENDED_FIELDS = ["mastery_node", "stage_relevant", "introduces", "uses",
-                              "prerequisites", "can_do", "bottleneck_hint"]
+                              "prerequisites", "can_do", "bottleneck_hint", "parsimony_limit"]
 
 
 def cmd_porter(args: argparse.Namespace) -> int:
