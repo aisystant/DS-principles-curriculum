@@ -14,6 +14,10 @@ check-pack-gap.py — Ф11 Pack-sufficiency gate (WP-322).
   python3 tools/check-pack-gap.py specs/v4-reference/ \\
       --ontology PACK-personal/ontology.md --diff HEAD~1
 
+  # Режим одного подраздела (для build-skeleton workflow):
+  python3 tools/check-pack-gap.py specs/v4-reference/01-structure-guide-1.md \\
+      --ontology PACK-personal/ontology.md --subsection PD.GUIDE.1.S6.SS1
+
 Exit codes: 0 = PASS, 1 = FAIL (есть понятия вне онтологии), 2 = INTERNAL_ERROR.
 """
 from __future__ import annotations
@@ -101,14 +105,50 @@ def collect_diff(guides_dir: Path, base_ref: str) -> dict[str, list[str]]:
     return result
 
 
+def collect_subsection(structure_file: Path, subsection_id: str) -> dict[str, list[str]]:
+    """Extract introduces concepts from a single subsection in structure-guide file."""
+    text = structure_file.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    in_target = False
+    result: list[str] = []
+
+    # Subsection header pattern: ### N.MM <title> (followed by yaml block with subsection_id)
+    # We find the yaml block containing our subsection_id and collect introduces from it
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # Look for subsection_id in yaml frontmatter blocks
+        if f"subsection_id: {subsection_id}" in line:
+            in_target = True
+        if in_target and INTRODUCES_RE.match(line):
+            m = INTRODUCES_RE.match(line)
+            if m:
+                raw = m.group(1).strip().rstrip("→").strip()
+                if raw:
+                    result.append(raw)
+        # Stop at next subsection header (### N.MM) after finding target
+        if in_target and i > 0 and line.startswith("### ") and result:
+            break
+        i += 1
+
+    if not result and not in_target:
+        print(f"INTERNAL_ERROR: подраздел «{subsection_id}» не найден в {structure_file.name}", file=sys.stderr)
+        sys.exit(2)
+
+    return {str(structure_file): result} if result else {}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("guides_dir", type=Path,
-                        help="Путь к папке specs/v4-reference/")
+                        help="Путь к папке specs/v4-reference/ (или конкретный файл structure-guide-N.md при --subsection)")
     parser.add_argument("--ontology", type=Path, required=True,
                         help="Путь к PACK-personal/ontology.md")
     parser.add_argument("--diff", metavar="BASE_REF",
                         help="Git-ref базовой ветки (только новые вводится из diff)")
+    parser.add_argument("--subsection", metavar="SUBSECTION_ID",
+                        help="Проверить только указанный подраздел (PD.GUIDE.N.SX.SSY). guides_dir = файл structure-guide-N.md")
     args = parser.parse_args()
 
     if not args.guides_dir.exists():
@@ -123,7 +163,13 @@ def main() -> int:
         print("INTERNAL_ERROR: §2 онтологии пуст — проверьте формат файла", file=sys.stderr)
         return 2
 
-    if args.diff:
+    if args.subsection:
+        if not args.guides_dir.is_file():
+            print(f"INTERNAL_ERROR: при --subsection guides_dir должен быть файлом structure-guide, не директорией", file=sys.stderr)
+            return 2
+        introduces_map = collect_subsection(args.guides_dir, args.subsection)
+        mode_label = f"подраздел {args.subsection}"
+    elif args.diff:
         introduces_map = collect_diff(args.guides_dir, args.diff)
         mode_label = f"diff от {args.diff}"
     else:

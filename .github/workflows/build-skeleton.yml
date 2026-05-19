@@ -1,0 +1,191 @@
+name: build-skeleton
+
+# WP-322 Ф3: детерминированная сборка SS-skeleton из structure-guide.
+#
+# workflow_dispatch: subsection_id → check Pack-sufficiency → skeleton → PR в aisystant/docs:staging-v4
+#
+# Предусловие (Pack-first rule): все introduces-понятия подраздела должны быть
+# в PACK-personal/ontology.md §2. Если нет — workflow падает с issue-инструкцией.
+#
+# Формат subsection_id: PD.GUIDE.N.SX.SSY (напр. PD.GUIDE.1.S6.SS1)
+# Выходной файл: docs/ru/personal-design-staging/<guide-dir>/<section>.<order:02d>.md
+
+on:
+  workflow_dispatch:
+    inputs:
+      subsection_id:
+        description: 'ID подраздела (PD.GUIDE.N.SX.SSY)'
+        required: true
+        type: string
+      base_branch:
+        description: 'Ветка-цель в aisystant/docs'
+        required: false
+        default: 'staging-v4'
+        type: string
+
+jobs:
+  build-skeleton:
+    name: build-skeleton (${{ github.event.inputs.subsection_id }})
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout DS-principles-curriculum
+        uses: actions/checkout@v4
+        with:
+          path: curriculum
+
+      - name: Checkout PACK-personal
+        uses: actions/checkout@v4
+        with:
+          repository: aisystant/PACK-personal
+          path: PACK-personal
+          token: ${{ secrets.PACK_READ_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Checkout aisystant/docs (staging-v4)
+        uses: actions/checkout@v4
+        with:
+          repository: aisystant/docs
+          path: docs-repo
+          ref: ${{ github.event.inputs.base_branch }}
+          token: ${{ secrets.DOCS_WRITE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Validate subsection_id format
+        id: parse
+        env:
+          SS_ID: ${{ github.event.inputs.subsection_id }}
+        run: |
+          # Парсим PD.GUIDE.N.SX.SSY
+          if [[ ! "$SS_ID" =~ ^PD\.GUIDE\.([0-9]+)\.S([0-9]+)\.SS([0-9]+)$ ]]; then
+            echo "::error::Неверный формат subsection_id: '$SS_ID'. Ожидается PD.GUIDE.N.SX.SSY"
+            exit 1
+          fi
+
+          GUIDE="${BASH_REMATCH[1]}"
+          SECTION="${BASH_REMATCH[2]}"
+          ORDER="${BASH_REMATCH[3]}"
+          ORDER_PADDED=$(printf "%02d" "$ORDER")
+
+          # Маппинг guide → название директории
+          declare -A GUIDE_DIRS
+          GUIDE_DIRS[1]="1-1-systemic-self-development"
+          GUIDE_DIRS[2]="1-2-self-development-methods"
+          GUIDE_DIRS[3]="1-3-iwe-toolkit"
+          GUIDE_DIRS[4]="1-4-working-development"
+
+          GUIDE_DIR="${GUIDE_DIRS[$GUIDE]}"
+          if [[ -z "$GUIDE_DIR" ]]; then
+            echo "::error::Неизвестный guide '$GUIDE'. Добавьте маппинг в build-skeleton.yml"
+            exit 1
+          fi
+
+          STRUCTURE_FILE="curriculum/specs/v4-reference/0${GUIDE}-structure-guide-${GUIDE}.md"
+
+          echo "guide=$GUIDE" >> "$GITHUB_OUTPUT"
+          echo "section=$SECTION" >> "$GITHUB_OUTPUT"
+          echo "order=$ORDER_PADDED" >> "$GITHUB_OUTPUT"
+          echo "guide_dir=$GUIDE_DIR" >> "$GITHUB_OUTPUT"
+          echo "structure_file=$STRUCTURE_FILE" >> "$GITHUB_OUTPUT"
+          echo "out_file=docs/ru/personal-design-staging/${GUIDE_DIR}/${SECTION}.${ORDER_PADDED}.md" >> "$GITHUB_OUTPUT"
+          echo "branch_name=skeleton/$(echo "$SS_ID" | tr '.' '-' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Pack-sufficiency check (блокирующее)
+        env:
+          SS_ID: ${{ github.event.inputs.subsection_id }}
+          STRUCTURE_FILE: ${{ steps.parse.outputs.structure_file }}
+        run: |
+          # Проверяем introduces конкретного SS против ontology.md §2
+          # --subsection: только этот SS, не весь файл
+          cd curriculum
+          python3 tools/check-pack-gap.py \
+            --ontology ../PACK-personal/ontology.md \
+            --subsection "$SS_ID" \
+            "$STRUCTURE_FILE" || {
+              echo "::error::Pack-sufficiency FAIL для $SS_ID — не все introduces зарегистрированы в ontology.md §2"
+              echo "Добавьте отсутствующие понятия в PACK-personal/ontology.md §2 перед генерацией skeleton."
+              exit 1
+            }
+
+      - name: Generate skeleton
+        id: skeleton
+        env:
+          SS_ID: ${{ github.event.inputs.subsection_id }}
+          STRUCTURE_FILE: ${{ steps.parse.outputs.structure_file }}
+          OUT_FILE: ${{ steps.parse.outputs.out_file }}
+        run: |
+          mkdir -p "docs-repo/$(dirname "$OUT_FILE")"
+          cd curriculum
+          python3 tools/build-skeleton.py \
+            --id "$SS_ID" \
+            --structure "$STRUCTURE_FILE" \
+            --out "../docs-repo/$OUT_FILE"
+          echo "Generated: $OUT_FILE"
+
+      - name: Create branch and commit
+        env:
+          SS_ID: ${{ github.event.inputs.subsection_id }}
+          BRANCH: ${{ steps.parse.outputs.branch_name }}
+          OUT_FILE: ${{ steps.parse.outputs.out_file }}
+          BASE_BRANCH: ${{ github.event.inputs.base_branch }}
+        run: |
+          cd docs-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add "$OUT_FILE"
+          git commit -m "feat(skeleton): $SS_ID — автоматически сгенерирован build-skeleton
+
+          Skeleton создан из structure-guide через WP-322 Ф3 workflow.
+          Pack-sufficiency проверена — все introduces в ontology.md §2.
+
+          Следующий шаг: автор заполняет placeholder-блоки и запускает /verify subsection.
+
+          Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          git push origin "$BRANCH"
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_WRITE_TOKEN || secrets.GITHUB_TOKEN }}
+          SS_ID: ${{ github.event.inputs.subsection_id }}
+          BRANCH: ${{ steps.parse.outputs.branch_name }}
+          OUT_FILE: ${{ steps.parse.outputs.out_file }}
+          BASE_BRANCH: ${{ github.event.inputs.base_branch }}
+        run: |
+          gh pr create \
+            --repo aisystant/docs \
+            --head "$BRANCH" \
+            --base "$BASE_BRANCH" \
+            --title "feat(skeleton): $SS_ID" \
+            --body "## Skeleton: $SS_ID
+
+          Автоматически сгенерирован через WP-322 Ф3 \`build-skeleton\` workflow.
+
+          **Файл:** \`$OUT_FILE\`
+          **Pack-sufficiency:** ✅ все \`introduces\` в ontology.md §2
+
+          ## Что делать автору
+
+          1. Открыть файл \`$OUT_FILE\`
+          2. Заполнить все \`<placeholder>\` блоки по WRITING-PIPELINE Этап 4-8
+          3. Запустить \`/verify subsection\` в Claude Code → получить PASS/FAIL
+          4. После PASS (machine + agent) → сменить label на \`pilot-ready\`
+
+          ## Чеклист (для ревью)
+
+          - [ ] Все placeholder-ы заполнены
+          - [ ] \`/verify subsection\` → machine PASS
+          - [ ] \`/verify subsection\` → agent PASS (FPF + pedagogy)
+          - [ ] ≥3 пилота × 6/6 (label \`passed-pilot\`)
+          " \
+            --label "skeleton,draft,needs-author" || echo "::warning::PR уже существует или ошибка создания"
