@@ -1,0 +1,117 @@
+name: auto-merge
+
+# WP-322 Ф15: Auto-merge для [hotfix] PR.
+#
+# При постановке label `hotfix` на PR проверяет, что:
+# 1. В заголовке PR есть [hotfix]
+# 2. Все required checks PASS
+# Если оба условия выполнены → squash-merge без ручного нажатия.
+#
+# Предусловие (action пилота): в branch protection rule `main` должны быть
+# required checks: structure, porter, cross-guide, pack-drift, pack-gap, smoke-test.
+# Для hotfix-PR исключение pilot-approved НЕ требуется (лейбл = proof-of-intent).
+
+on:
+  pull_request:
+    types: [labeled]
+  # Также на push нового статуса check — чтобы поймать случай, когда лейбл
+  # поставлен до завершения checks
+  workflow_run:
+    workflows:
+      - v4-lint
+      - content-validation
+    types: [completed]
+
+jobs:
+  auto-merge-hotfix:
+    name: Auto-merge hotfix PR
+    runs-on: ubuntu-latest
+    # Запускаем только при labeled-event с нужным лейблом
+    # или при завершении CI workflow (тогда ищем открытые hotfix PR)
+    permissions:
+      pull-requests: write
+      contents: write
+
+    steps:
+      - name: Find hotfix PR (для workflow_run event)
+        id: find-pr
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Ищем открытые PR с лейблом hotfix на той же ветке, что запустила CI
+          HEAD_BRANCH="${{ github.event.workflow_run.head_branch }}"
+          PR_NUMBER=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "$HEAD_BRANCH" \
+            --label "hotfix" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+          echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "Found PR: ${PR_NUMBER:-none}"
+
+      - name: Determine PR number
+        id: pr
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ steps.find-pr.outputs.pr_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check hotfix label and title
+        id: hotfix-check
+        if: steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          PR_DATA=$(gh pr view "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --json title,labels,state)
+
+          PR_TITLE=$(echo "$PR_DATA" | jq -r '.title')
+          PR_STATE=$(echo "$PR_DATA" | jq -r '.state')
+          HAS_HOTFIX_LABEL=$(echo "$PR_DATA" | jq -r '[.labels[].name] | contains(["hotfix"]) | tostring')
+
+          echo "title=${PR_TITLE}"
+          echo "state=${PR_STATE}"
+          echo "has_hotfix_label=${HAS_HOTFIX_LABEL}"
+
+          if [[ "$PR_STATE" != "OPEN" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "PR не открыт (state=$PR_STATE) — пропуск"
+            exit 0
+          fi
+
+          if [[ "$HAS_HOTFIX_LABEL" != "true" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Нет лейбла hotfix — пропуск"
+            exit 0
+          fi
+
+          if [[ "$PR_TITLE" != *"[hotfix]"* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::PR #$PR_NUMBER имеет лейбл hotfix, но заголовок не содержит [hotfix]. Пропуск auto-merge."
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Enable auto-merge
+        if: |
+          steps.pr.outputs.number != '' &&
+          steps.hotfix-check.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          echo "Включаем auto-merge для PR #$PR_NUMBER (hotfix)"
+          gh pr merge "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --auto \
+            --squash \
+            --subject "[hotfix] $(gh pr view $PR_NUMBER --repo ${{ github.repository }} --json title --jq '.title')"
+          echo "✅ Auto-merge включён для PR #$PR_NUMBER"
+          echo "Merge произойдёт автоматически после прохождения всех required checks."
