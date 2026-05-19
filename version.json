@@ -1,0 +1,11 @@
+{
+  "version": "0.1.0",
+  "released_at": "2026-05-19",
+  "guides": {
+    "1": {"version": "0.1.0", "status": "draft", "sections_complete": 0},
+    "2": {"version": "0.0.1", "status": "skeleton", "sections_complete": 0},
+    "3": {"version": "0.0.1", "status": "skeleton", "sections_complete": 0},
+    "4": {"version": "0.0.1", "status": "skeleton", "sections_complete": 0}
+  },
+  "schema": "1.0"
+}

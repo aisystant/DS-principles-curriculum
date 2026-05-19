@@ -1,0 +1,146 @@
+name: release
+
+# WP-322 Ф6: автоматический релиз руководств v4.
+#
+# Триггеры:
+#   1. merged PR с лейблом pilot-approved / new-concept / new-section (≥N merged с последнего тега)
+#   2. workflow_dispatch (ручной запуск, всегда выпускает если есть изменения)
+#
+# Алгоритм:
+#   - semver-bot.py определяет уровень bump по commit messages
+#   - Обновляет version.json + CHANGELOG.md
+#   - Создаёт GitHub Release с release notes
+#   - Уведомляет в Telegram
+#
+# Secrets:
+#   TELEGRAM_BOT_TOKEN — токен Telegram-бота
+#   TELEGRAM_CHAT_ID   — ID чата/канала для уведомлений
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Принудительно выпустить релиз (даже если 0 релевантных коммитов)'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    # Для pull_request: только merged PR с релевантными лейблами
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       (contains(github.event.pull_request.labels.*.name, 'pilot-approved') ||
+        contains(github.event.pull_request.labels.*.name, 'new-concept') ||
+        contains(github.event.pull_request.labels.*.name, 'new-section') ||
+        contains(github.event.pull_request.labels.*.name, 'hotfix')))
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run semver-bot (dry-run)
+        id: semver
+        run: |
+          MIN_COMMITS=5
+          if [[ "${{ github.event.inputs.force }}" == "true" ]]; then
+            MIN_COMMITS=1
+          fi
+
+          OUTPUT=$(python3 tools/semver-bot.py --min-commits "$MIN_COMMITS")
+          echo "$OUTPUT"
+
+          NEW_VERSION=$(echo "$OUTPUT" | grep "^new_version=" | cut -d= -f2)
+          if [[ -z "$NEW_VERSION" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Недостаточно коммитов для релиза"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Write version and changelog
+        if: steps.semver.outputs.skip == 'false'
+        id: write
+        run: |
+          MIN_COMMITS=5
+          if [[ "${{ github.event.inputs.force }}" == "true" ]]; then
+            MIN_COMMITS=1
+          fi
+
+          python3 tools/semver-bot.py --write --min-commits "$MIN_COMMITS"
+
+          NEW_VERSION="${{ steps.semver.outputs.new_version }}"
+
+          # Извлечь changelog-блок для этой версии
+          CHANGELOG=$(awk "/^## \[$NEW_VERSION\]/{p=1} p{print} /^## \[/{if(p && !/\[$NEW_VERSION\]/) exit}" CHANGELOG.md)
+          echo "changelog<<EOF_CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "EOF_CHANGELOG" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version bump
+        if: steps.semver.outputs.skip == 'false'
+        env:
+          NEW_VERSION: ${{ steps.semver.outputs.new_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.json CHANGELOG.md
+          git commit -m "chore(release): v$NEW_VERSION
+
+          Автоматически сгенерировано semver-bot (WP-322 Ф6).
+
+          Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          git push
+
+      - name: Create GitHub Release
+        if: steps.semver.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.semver.outputs.new_version }}
+          CHANGELOG: ${{ steps.write.outputs.changelog }}
+        run: |
+          git tag "v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+
+          gh release create "v$NEW_VERSION" \
+            --title "v$NEW_VERSION — Руководства v4" \
+            --notes "$CHANGELOG" \
+            --latest
+
+      - name: Notify Telegram
+        if: |
+          steps.semver.outputs.skip == 'false' &&
+          secrets.TELEGRAM_BOT_TOKEN != ''
+        env:
+          NEW_VERSION: ${{ steps.semver.outputs.new_version }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/v$NEW_VERSION"
+          MESSAGE="📦 *Руководства v4 — релиз v${NEW_VERSION}*%0A%0AСмотреть: ${RELEASE_URL}"
+
+          curl -s -X POST \
+            "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d "chat_id=${TG_CHAT}" \
+            -d "text=${MESSAGE}" \
+            -d "parse_mode=Markdown" \
+            -d "disable_web_page_preview=true" \
+            || echo "::warning::Telegram уведомление не отправлено"
