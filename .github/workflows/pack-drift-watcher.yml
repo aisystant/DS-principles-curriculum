@@ -17,6 +17,13 @@ on:
         description: 'Локальный путь к PD.FORM.089 для ручного теста'
         required: false
         default: 'pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md'
+  workflow_call:
+    inputs:
+      pack_path:
+        description: 'Локальный путь к PD.FORM.089'
+        required: false
+        type: string
+        default: 'pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md'
 
 jobs:
   check-drift:
@@ -39,8 +46,10 @@ jobs:
 
       - name: Run stub-pack-drift
         id: drift
+        env:
+          PACK_PATH_INPUT: ${{ github.event.inputs.pack_path || inputs.pack_path || 'pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md' }}
         run: |
-          PACK_FILE="pack-personal/pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md"
+          PACK_FILE="pack-personal/${PACK_PATH_INPUT}"
           if [[ ! -f "$PACK_FILE" ]]; then
             echo "ERROR: Pack file not found: $PACK_FILE" >&2
             exit 1
@@ -108,6 +117,16 @@ jobs:
             --label "pack-drift,needs-author-review,automated"
 
           echo "✅ Issue created"
+
+          {
+            echo "## Pack Drift Watcher: drift detected"
+            echo "| Метрика | Значение |"
+            echo "|---------|----------|"
+            echo "| Drift count | ${DRIFT_COUNT} |"
+            echo "| Pack hash | ${PACK_HASH} |"
+            echo "| Pack commit | ${PACK_COMMIT_URL} |"
+            echo "| Trigger | ${{ github.event_name }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: No-op log + heartbeat if no drift
         if: steps.drift.outputs.drift_count == '0'

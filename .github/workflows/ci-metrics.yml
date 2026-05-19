@@ -1,0 +1,65 @@
+name: CI Metrics Dashboard
+
+# WP-322 Ф7-MVP: метрики и мониторинг через GitHub Actions summary.
+# Генерирует dashboard: pass rate, avg build time, drift count за последние N дней.
+#
+# Запускается:
+#   - Ежедневно в 06:00 UTC (регулярный отчёт)
+#   - Вручную (workflow_dispatch)
+#   - После завершения основных CI workflow (workflow_run)
+
+on:
+  workflow_run:
+    workflows: [v4-lint, content-validation, "Pack Drift Watcher", build-skeleton]
+    types: [completed]
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Период в днях'
+        required: false
+        default: '7'
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install GitHub CLI
+        run: |
+          # gh обычно предустановлен на ubuntu-latest, но на всякий случай
+          gh --version || (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null && sudo apt update && sudo apt install gh -y)
+
+      - name: Authenticate gh
+        run: echo "${{ github.token }}" | gh auth login --with-token
+
+      - name: Generate dashboard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          DAYS="${{ github.event.inputs.days || '7' }}"
+          python3 tools/ci-metrics-dashboard.py --days "$DAYS" --out CI-DASHBOARD.md
+
+      - name: Upload dashboard artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-dashboard
+          path: CI-DASHBOARD.md
+          retention-days: 30
+
+      - name: Write step summary
+        run: cat CI-DASHBOARD.md >> "$GITHUB_STEP_SUMMARY"

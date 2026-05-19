@@ -155,6 +155,7 @@ jobs:
           git push origin "$BRANCH"
 
       - name: Create Pull Request
+        id: create_pr
         env:
           GH_TOKEN: ${{ secrets.DOCS_WRITE_TOKEN || secrets.GITHUB_TOKEN }}
           SS_ID: ${{ github.event.inputs.subsection_id }}
@@ -162,7 +163,7 @@ jobs:
           OUT_FILE: ${{ steps.parse.outputs.out_file }}
           BASE_BRANCH: ${{ github.event.inputs.base_branch }}
         run: |
-          gh pr create \
+          PR_URL=$(gh pr create \
             --repo aisystant/docs \
             --head "$BRANCH" \
             --base "$BASE_BRANCH" \
@@ -188,4 +189,26 @@ jobs:
           - [ ] \`/verify subsection\` → agent PASS (FPF + pedagogy)
           - [ ] ≥3 пилота × 6/6 (label \`passed-pilot\`)
           " \
-            --label "skeleton,draft,needs-author" || echo "::warning::PR уже существует или ошибка создания"
+            --label "skeleton,draft,needs-author" 2>&1 | tee /tmp/pr-create.log || true)
+
+          if echo "$PR_URL" | grep -q "https://github.com/.*/pull/"; then
+            echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+            echo "✅ PR created: $PR_URL"
+          else
+            echo "::warning::PR уже существует или ошибка создания"
+            echo "pr_url=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## build-skeleton: ${{ github.event.inputs.subsection_id }}"
+            echo "| Метрика | Значение |"
+            echo "|---------|----------|"
+            echo "| Subsection | ${{ github.event.inputs.subsection_id }} |"
+            echo "| Output file | ${{ steps.parse.outputs.out_file }} |"
+            echo "| Branch | ${{ steps.parse.outputs.branch_name }} |"
+            echo "| Pack-sufficiency | ✅ |"
+            echo "| PR | ${{ steps.create_pr.outputs.pr_url || '—' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

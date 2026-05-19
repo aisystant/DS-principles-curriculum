@@ -1,0 +1,16 @@
+# Dockerfile.staging — WP-322 Ф16
+# Статический образ nginx с собранной VitePress staging-документацией.
+# Собирается в CI aisystant/docs на push в staging-v4.
+#
+# Usage (из корня aisystant/docs):
+#   docker build -f infra/docker/Dockerfile.staging -t docs-staging .
+#   docker run -p 8080:80 docs-staging
+
+FROM nginx:alpine
+LABEL maintainer="WP-322 pipeline"
+
+# VitePress build выводит статику в docs/.vitepress/dist
+# CI должен скопировать её в контекст билда как dist/
+COPY dist /usr/share/nginx/html
+
+EXPOSE 80

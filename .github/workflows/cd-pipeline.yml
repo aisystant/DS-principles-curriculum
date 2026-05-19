@@ -1,0 +1,93 @@
+name: CD Pipeline
+
+# WP-322 Ф8: единый cross-repo pipeline.
+# Конвергенция trigger'ов lint + validation в один orchestrator workflow.
+# Каждый child workflow также может запускаться самостоятельно (workflow_call добавлен к ним).
+#
+# Что даёт:
+# - Единый PR view со статусом всех gate'ов
+# - Единый GitHub Actions summary page
+# - Возможность вызвать весь pipeline из других workflow (workflow_call)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  lint:
+    name: 🔴 v4-lint
+    uses: ./.github/workflows/v4-lint.yml
+    secrets: inherit
+
+  validation:
+    name: 🔴 Pack-sufficiency
+    uses: ./.github/workflows/content-validation.yaml
+    secrets: inherit
+
+  aggregate:
+    name: CD Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [lint, validation]
+    if: always()
+    steps:
+      - name: Aggregate status
+        run: |
+          LINT="${{ needs.lint.result }}"
+          VAL="${{ needs.validation.result }}"
+
+          # Map to icons
+          icon() {
+            case "$1" in
+              success) echo "✅";;
+              failure) echo "❌";;
+              cancelled) echo "🚫";;
+              skipped) echo "⏭️";;
+              *) echo "⏳";;
+            esac
+          }
+
+          {
+            echo "## CD Pipeline Summary (WP-322 Ф8)"
+            echo ""
+            echo "| Gate | Result |"
+            echo "|------|--------|"
+            echo "| $(icon $LINT) v4-lint | ${LINT} |"
+            echo "| $(icon $VAL) Pack-sufficiency | ${VAL} |"
+            echo ""
+            if [[ "$LINT" == "success" && "$VAL" == "success" ]]; then
+              echo "✅ **All gates passed** — код проходит 🔴 machine checks."
+            else
+              echo "❌ **Some gates failed** — см. детали в job'ах выше."
+            fi
+            echo ""
+            echo "---"
+            echo ""
+            echo "> Pipeline: [cd-pipeline.yml](.github/workflows/cd-pipeline.yml) | Документация: [CD-PIPELINE.md](specs/v4-reference/CD-PIPELINE.md)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: PR comment (on failure)
+        if: github.event_name == 'pull_request' && (needs.lint.result == 'failure' || needs.validation.result == 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BODY=$(cat <<EOF
+          ## ❌ CD Pipeline Failure
+
+          Один или несколько gate'ов не прошли в этом PR.
+
+          | Gate | Result |
+          |------|--------|
+          | v4-lint | ${{ needs.lint.result }} |
+          | Pack-sufficiency | ${{ needs.validation.result }} |
+
+          [Открыть Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          EOF
+          )
+          gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY" || true

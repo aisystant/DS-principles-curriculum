@@ -16,6 +16,7 @@ on:
     paths:
       - 'specs/v4-reference/*-structure-guide-*.md'
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   pack-gap:
@@ -40,18 +41,36 @@ jobs:
           python-version: '3.11'
 
       - name: Run pack-gap (diff-mode for PR, full for push)
+        id: packgap_run
         run: |
+          START=$(date +%s)
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             BASE="${{ github.event.pull_request.base.sha }}"
             echo "PR-режим: проверяем только новые вводится относительно ${BASE}"
             python3 tools/check-pack-gap.py specs/v4-reference/ \
               --ontology PACK-personal/ontology.md \
-              --diff "${BASE}"
+              --diff "${BASE}" 2>&1 | tee /tmp/packgap-output.txt
           else
             echo "Push-режим: полная проверка всех structure-guide файлов"
             python3 tools/check-pack-gap.py specs/v4-reference/ \
-              --ontology PACK-personal/ontology.md
+              --ontology PACK-personal/ontology.md 2>&1 | tee /tmp/packgap-output.txt
           fi
+          EXIT_CODE=${PIPESTATUS[0]}
+          END=$(date +%s)
+          DURATION=$((END - START))
+          TOTAL=$(grep -oP '\d+(?= понятий проверено)' /tmp/packgap-output.txt | tail -1 || echo 0)
+          GAPS=$(grep -oP '\d+(?= вне онтологии)' /tmp/packgap-output.txt | tail -1 || echo 0)
+          {
+            echo "## Pack-sufficiency gate"
+            echo "| Метрика | Значение |"
+            echo "|---------|----------|"
+            echo "| Duration | ${DURATION}s |"
+            echo "| Total concepts | $TOTAL |"
+            echo "| Gaps | $GAPS |"
+            echo "| Exit code | $EXIT_CODE |"
+            echo "| Mode | ${{ github.event_name }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $EXIT_CODE
 
       - name: On failure — hint
         if: failure()

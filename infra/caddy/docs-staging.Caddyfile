@@ -1,0 +1,27 @@
+# docs-staging.Caddyfile — WP-322 Ф16
+# Reverse proxy для Nomad job docs-staging.
+# Добавить в основной Caddyfile сервера (обычно /etc/caddy/Caddyfile).
+#
+# Requirements:
+#   - Caddy с модулем reverse_proxy
+#   - Consul DNS или статический upstream (если Consul недоступен)
+#   - TLS автоматически через Let's Encrypt (Caddy default)
+
+staging.docs.aisystant.app {
+    # Если Consul DNS настроен:
+    reverse_proxy docs-staging.service.consul:80
+
+    # Fallback (если Consul недоступен — заменить на IP ноды Nomad):
+    # reverse_proxy 10.0.0.1:8080
+
+    # Кэширование статики (опционально)
+    @static {
+        path *.css *.js *.png *.jpg *.svg *.woff2
+    }
+    header @static Cache-Control "public, max-age=86400"
+
+    # Логи доступа (опционально)
+    log {
+        output file /var/log/caddy/staging.docs.aisystant.app.log
+    }
+}
