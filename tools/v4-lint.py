@@ -136,7 +136,7 @@ def parse_yaml_block(block: str) -> dict:
                 if not child.strip():
                     j += 1
                     continue
-                cm = re.match(r'^(\s+)-\s+(.+)$', child)
+                cm = re.match(r'^(\s*)-\s+(.+)$', child)
                 if cm:
                     items.append(_coerce_scalar(cm.group(2)))
                     j += 1
