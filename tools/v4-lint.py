@@ -54,7 +54,7 @@ SUBSECTION_HEADER_RE = re.compile(r"^###\s+(\d+)\.(\d+)\s+")
 INLINE_YAML_RE = re.compile(r"```yaml\n(.*?)\n```", re.DOTALL)
 CP_BH_RE = re.compile(r"\b(cp\.[a-z]+|bh\.[a-z]+)\b")
 # Источник Pack: PD.FORM.NNN / PD.METHOD.NNN / PD.CAT.NNN. Без префикса PD. не считается.
-PACK_SOURCE_RE = re.compile(r"\bPD\.(?:FORM|METHOD|CAT)\.\d+")
+PACK_SOURCE_RE = re.compile(r"\bPD\.(?:FORM|METHOD|CAT|ARCH|FAIL|PRINC|ROLE|CHR|STATE|WP|D)\.\d+")
 UTYPE_RE = re.compile(r"U\.[A-Za-z]+")
 
 

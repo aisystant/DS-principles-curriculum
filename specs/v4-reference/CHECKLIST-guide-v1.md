@@ -49,7 +49,7 @@ python3 tools/v4-lint.py cross-guide --scope guide <guide-id> specs/v4-reference
 - [ ] **B.1 Понятия не дублируются между руководствами:** одно понятие = одно руководство-источник (introduces), остальные используют (uses)
 - [ ] **B.2 Bounded Context руководства соблюдён:** `mastery_node` всех подразделов попадает в зону руководства (A.1.1)
 - [ ] **B.3 Нет orphan-ссылок:** каждый `uses` в подразделе ссылается на существующий `introduces` (в этом или другом руководстве)
-- [ ] **B.4 Pack-маппинг полон:** все понятия из `introduces` всех подразделов имеют ссылку на Pack (`PD.FORM/METHOD/CAT.NNN`)
+- [ ] **B.4 Pack-маппинг полон:** все понятия из `introduces` всех подразделов имеют ссылку на Pack (`PD.FORM/METHOD/CAT/ARCH/FAIL/PRINC/ROLE/CHR/STATE/WP/D.NNN`)
 
 ### 🔴 C. Граф понятий руководства
 
