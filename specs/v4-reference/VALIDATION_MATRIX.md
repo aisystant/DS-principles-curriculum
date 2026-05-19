@@ -64,6 +64,7 @@ applies_to: все изменения в specs/v4-reference/ и aisystant/docs
 |---|----------|----------|------------|--------------|
 | F-N1 | Битые cross-repo ссылки | Нет `../../../PACK-personal/ontology.md#*` в тексте руководств | `grep` / `lychee` | pre-commit + CI |
 | F-N2 | Frontmatter completeness v4.1 | `format_version`, `pack_refs`, `time_reading`, `time_practice`, `word_count_target`, `status` присутствуют | `sync-guide-to-ontology.py` + скрипт | pre-commit + CI |
+| F-N3 | **Spec–impl completeness** ✅ ЗАКРЫТО | Каждый `subsection_id` в `structure-guide-N.md` имеет контентный файл в `aisystant/docs`. Orphan (файл без объявления) — WARN. | `v4-lint completeness` (WP-322 Ф3.11, 2026-05-19) | CI (v4-lint.yml) + periodic |
 
 ### 2.4. Обязательные блоки v4.1 (актуализировано)
 
@@ -177,7 +178,7 @@ applies_to: все изменения в specs/v4-reference/ и aisystant/docs
 
 | Измерение / Подпункт | 🔴 Машина | 🟡 Агент | 🟢 Пилот | Periodic |
 |----------------------|:---------:|:--------:|:--------:|:--------:|
-| **Форма** | v4-lint structure, porter, graph, cross-guide, pack-drift; validate.py; grep links | — | — | — |
+| **Форма** | v4-lint structure, porter, graph, cross-guide, pack-drift, **completeness**; validate.py; grep links | — | — | — |
 | **Pack-sufficiency** | v4-lint --strict-pack (A.8); ontology reverse-check | — | — | reverse-check |
 | **Содержание** | word count; didactic-lang grep | expert review (Claude) | — | — |
 | **Граф знаний** | v4-lint graph, cross-guide | анализ orphans | — | глобальный orphan audit |

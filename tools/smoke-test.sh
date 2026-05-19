@@ -220,6 +220,33 @@ fi
 
 rm -rf "$GRAPH_OUT"
 
+# ============================================================================
+# completeness (WP-322 Ф3.11)
+# ============================================================================
+COMPL_OK="$SCRIPT_DIR/fixtures/completeness/content-ok"
+COMPL_MISSING="$SCRIPT_DIR/fixtures/completeness/content-missing"
+
+echo "=== completeness: все 3 SS есть → exit 0 ==="
+assert_exit 0 "completeness(ok)" python3 "$LINT" completeness "$VALID" \
+  --content-dir "$COMPL_OK"
+assert_grep "missing=0" "нет missing"
+
+echo "=== completeness: 2 SS отсутствуют → exit 1 + MISSING ==="
+assert_exit 1 "completeness(missing)" python3 "$LINT" completeness "$VALID" \
+  --content-dir "$COMPL_MISSING"
+assert_grep "COMPLETENESS-MISSING" "найдены MISSING errors"
+assert_grep "missing=2" "ровно 2 missing"
+
+echo "=== completeness: --guide + --section фильтр → только S1 ==="
+assert_exit 0 "completeness(section filter)" python3 "$LINT" completeness "$VALID" \
+  --content-dir "$COMPL_OK" --guide 1 --section 1
+assert_grep "объявлено=2" "section-фильтр ограничил до 2"
+
+echo "=== completeness: несуществующий content-dir → exit 1 ==="
+assert_exit 1 "completeness(bad dir)" python3 "$LINT" completeness "$VALID" \
+  --content-dir /nonexistent/path
+assert_grep "не существует" "ошибка на несуществующей директории"
+
 echo ""
 echo "=== Итог: $PASS pass, $FAIL fail ==="
 exit "$FAIL"

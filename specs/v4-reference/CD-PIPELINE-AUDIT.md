@@ -9,15 +9,15 @@ upstream: [CD-PIPELINE.md, VALIDATION_MATRIX.md, CHECKLISTS-README.md]
 # Аудит CD-конвейера: задекларировано vs реализовано
 
 > **Метод:** сравнение design-doc (CD-PIPELINE.md), спецификации (VALIDATION_MATRIX.md) и индекса (CHECKLISTS-README.md) с фактически созданными workflow, hooks, templates.
-> **Дата аудита:** 2026-05-18.
+> **Дата аудита:** 2026-05-18. **Обновлён:** 2026-05-19 (Ф3.11 completeness закрыт).
 > **Аудитор:** Kimi + Claude Sonnet 4.6 (cross-check).
 
 ---
 
 ## 1. Общий вердикт
 
-**Реализовано:** ~60% CD-конвейера (все 🔴 gate'ы для content validation, часть инфраструктуры).
-**Отсутствует:** ~40% (auto-merge, staging build, TG-уведомления, issue templates, CODEOWNERS, pack-drift-watcher, LLM Build, semver-bot, post-deploy checks).
+**Реализовано:** ~62% CD-конвейера (все 🔴 gate'ы для content validation + completeness check, часть инфраструктуры).
+**Отсутствует:** ~38% (auto-merge, staging build, TG-уведомления, issue templates, CODEOWNERS, pack-drift-watcher, LLM Build, semver-bot, post-deploy checks).
 
 Критичных багов нет. Все P0-проверки из VALIDATION_MATRIX.md реализованы. Основные gap'ы — в "мягкой" автоматизации (notifications, staging, release management), которая не блокирует merge, но блокирует полноценный CD.
 
@@ -101,6 +101,7 @@ upstream: [CD-PIPELINE.md, VALIDATION_MATRIX.md, CHECKLISTS-README.md]
 | F-V7 | Markdown таблицы | `content-validation.yaml` (validate.py) | ✅ |
 | F-N1 | Битые cross-repo ссылки | `content-validation.yaml` (grep) + `pre-commit-docs.sh` | ✅ |
 | F-N2 | Frontmatter completeness v4.1 | `content-validation.yaml` (Python скрипт) | ✅ |
+| **F-N3** | **Spec–impl completeness** | `v4-lint.yml` (completeness, WP-322 Ф3.11, 2026-05-19) | ✅ |
 | PS1 | Все introduces в ontology.md §2 | `content-validation.yaml` (sync-guide-to-ontology.py) | ✅ |
 | PS2 | Pack source указан | `v4-lint.yml` (structure --strict-pack, A.8) | ✅ |
 | G1–G3 | Граф (сборка, циклы, узлы) | `v4-lint.yml` (graph) | ✅ |
@@ -157,6 +158,9 @@ upstream: [CD-PIPELINE.md, VALIDATION_MATRIX.md, CHECKLISTS-README.md]
 | 10 | **semver-bot + Release** — автоматический changelog + GitHub Release | 🟢 P2 | C5 | 3-4h | Versioning |
 | 11 | **LLM Build** — workflow_dispatch → Claude API → draft | 🟢 P2 | C3 | 6-8h | Generation pipeline |
 | 12 | **Единая команда 🔴** — `make lint` или `v4-lint all` | 🟢 P2 | CHECKLISTS | 1h | DX |
+
+**✅ Закрытые gap'ы (обновлено 2026-05-19):**
+- **F-N3 Spec–impl completeness** — `v4-lint completeness` добавлен в v4-lint.py + v4-lint.yml (WP-322 Ф3.11). Причина пропуска: structure-lint проверял spec-файлы (объявления), но не сравнивал их с реальными контентными файлами в aisystant/docs. Это привело к ложному PASS при отсутствии SS8–SS11 для S6–S10.
 
 ---
 
