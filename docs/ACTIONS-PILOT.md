@@ -7,7 +7,7 @@
 ## Что агент сделал 20 мая
 
 - ✅ **Ф11** — auto-issue при `pack-gap > 0` в PR (`content-validation.yaml`)
-- ✅ **Ф10** — mermaid-диаграмма потока артефактов Э0→Э12 (`WRITING-PIPELINE.md`)
+- ✅ **Ф10** — mermaid-диаграмма потока артефактов Э0→Э14 (`WRITING-PIPELINE.md`)
 - ✅ Проверка workflow: все 10 workflow в `.github/workflows/` синтаксически корректны
 - ✅ Smoke-test: `v4-lint` 9 команд работают, structure/guide PASS
 
