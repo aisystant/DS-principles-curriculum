@@ -79,3 +79,48 @@ jobs:
           echo ""
           echo "Шаблон строки для ontology.md §2:"
           echo "| **Понятие** | Определение. ≠ X, ≠ Y | U.Type | PD.FORM.NNN | forming |"
+
+      - name: Create pack-gap issue
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUM=${{ github.event.pull_request.number }}
+          TITLE="[pack-gap] Pack-sufficiency FAIL в PR #${PR_NUM}"
+          
+          # Проверяем, нет ли уже открытого issue для этого PR
+          EXISTING=$(gh issue list --repo ${{ github.repository }} \
+            --label "pack-drift,needs-author-review,automated" \
+            --search "${TITLE}" --json number --jq '.[0].number' || true)
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
+            echo "Issue уже существует: #$EXISTING"
+            exit 0
+          fi
+          
+          # Формируем тело issue
+          {
+            echo "## Pack-sufficiency gate FAIL"
+            echo ""
+            echo "Автоматически создано при проверке PR. Некоторые понятия из \`вводится:\` отсутствуют в \`PACK-personal/ontology.md\` §2."
+            echo ""
+            echo "### Вывод check-pack-gap.py"
+            echo '```'
+            cat /tmp/packgap-output.txt
+            echo '```'
+            echo ""
+            echo "### Контекст"
+            echo "- PR: ${{ github.event.pull_request.html_url }}"
+            echo "- Commit: ${{ github.sha }}"
+            echo "- Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "### Что делать автору"
+            echo "1. Добавить отсутствующие понятия в \`PACK-personal/ontology.md\` §2 (Глоссарий домена)."
+            echo "2. Убедиться, что написание понятия в \`вводится:\` совпадает с онтологией."
+            echo "3. Перезапустить CI (push в PR)."
+            echo "4. Закрыть этот issue после PASS."
+          } > /tmp/issue-body.md
+          
+          gh issue create --repo ${{ github.repository }} \
+            --title "${TITLE}" \
+            --body-file /tmp/issue-body.md \
+            --label "pack-drift,needs-author-review,automated"
