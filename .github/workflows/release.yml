@@ -126,14 +126,17 @@ jobs:
             --latest
 
       - name: Notify Telegram
-        if: |
-          steps.semver.outputs.skip == 'false' &&
-          secrets.TELEGRAM_BOT_TOKEN != ''
+        if: steps.semver.outputs.skip == 'false'
         env:
           NEW_VERSION: ${{ steps.semver.outputs.new_version }}
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          if [[ -z "$TG_TOKEN" || -z "$TG_CHAT" ]]; then
+            echo "TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID не настроены — пропускаю уведомление"
+            exit 0
+          fi
+
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/v$NEW_VERSION"
           MESSAGE="📦 *Руководства v4 — релиз v${NEW_VERSION}*%0A%0AСмотреть: ${RELEASE_URL}"
 
