@@ -606,24 +606,30 @@ def detect_body_template(body_lines: list[str]) -> str:
     """Определить шаблон тела подраздела по заголовкам.
 
     Возвращает:
-      "h2"   — ≥3 строк вида `## Заголовок` (шаблон S7-S10, Kimi)
-      "bold" — ≥2 строк вида `**Заголовок**` без H2-блоков (шаблон S1-S6, Claude)
-      "unknown" — тело слишком короткое для однозначного вывода
+      "h2"   — ≥3 строк вида `## Заголовок` (шаблон S7-S10)
+      "bold" — ≥2 строк вида `**Заголовок.**` и < 3 H2 (шаблон S1-S6)
+      "unknown" — тело слишком короткое или смешанное для однозначного вывода
+
+    Примечание: порог H2 < 3 (а не == 0) допускает одиночный H2 в bold-файле
+    (например, цитату или случайный заголовок) без ложной классификации как unknown.
     """
     h2_count = sum(1 for l in body_lines if re.match(r'^## [^\s#]', l))
-    bold_block_count = sum(1 for l in body_lines if re.match(r'^\*\*[^*]+[.:][\*]*\s*$', l))
+    # Ловит строки вида `**Заголовок.**` и `**Заголовок:**` (trailing ** — часть markdown bold).
+    bold_block_count = sum(1 for l in body_lines if re.match(r'^\*\*[^*]+[.:]\*{0,2}\s*$', l))
     if h2_count >= 3:
         return "h2"
-    if bold_block_count >= 2 and h2_count == 0:
+    if bold_block_count >= 2 and h2_count < 3:
         return "bold"
     return "unknown"
 
 
-def check_body_template_consistency(all_subs: list, findings: list[Finding]) -> None:
+def check_body_template_consistency(all_subs: list["Subsection"], findings: list[Finding]) -> None:
     """WARN если в одном руководстве смешаны два шаблона тела (h2 и bold).
 
     Срабатывает только для content-файлов (from_single_ss=True), где body_lines заполнены.
     Auxiliary-подразделы (SS8-SS11) исключены — у них другой формат по дизайну.
+    При ничьей (равное число файлов каждого шаблона) выводит один WARN без указания
+    «правильного» шаблона — требуется ручное решение.
     """
     aux_id_re = re.compile(r"\.SS(0?8|0?9|10|11)$")
     by_guide: dict[int, dict[str, list]] = defaultdict(lambda: defaultdict(list))
@@ -638,30 +644,31 @@ def check_body_template_consistency(all_subs: list, findings: list[Finding]) -> 
             by_guide[sub.guide][tmpl].append(sub)
 
     for guide_num, tmpl_map in by_guide.items():
-        if len(tmpl_map) > 1:
-            # Два шаблона в одном руководстве — структурный разрыв
-            counts = {t: len(subs) for t, subs in tmpl_map.items()}
-            # Определить меньшинство (то, что надо привести к большинству)
-            minority_tmpl = min(counts, key=lambda t: counts[t])
-            minority_subs = tmpl_map[minority_tmpl]
-            majority_tmpl = max(counts, key=lambda t: counts[t])
+        if len(tmpl_map) <= 1:
+            continue
+        counts = {t: len(subs) for t, subs in tmpl_map.items()}
+        first_file = next(iter(tmpl_map.values()))[0].file
+
+        if len(set(counts.values())) == 1:
+            # Ничья — невозможно автоматически определить «правильный» шаблон
             findings.append(Finding(
-                "warning",
-                minority_subs[0].file,
-                None,
-                f"Guide {guide_num}: структурный разрыв — "
-                f"{counts[minority_tmpl]} файлов используют шаблон «{minority_tmpl}», "
-                f"{counts[majority_tmpl]} используют «{majority_tmpl}». "
-                f"Привести к единому шаблону «{majority_tmpl}». "
-                f"Пример файла меньшинства: {minority_subs[0].file.name}",
+                "warning", first_file, None,
+                f"Guide {guide_num}: ничья шаблонов тела — {dict(counts)}. "
+                f"Нужно ручное решение: выбрать один шаблон и нормализовать.",
             ))
-            for sub in minority_subs[1:]:
-                findings.append(Finding(
-                    "warning",
-                    sub.file,
-                    None,
-                    f"Guide {guide_num}: шаблон «{minority_tmpl}» — нужно привести к «{majority_tmpl}»",
-                ))
+            continue
+
+        minority_tmpl = min(counts, key=lambda t: counts[t])
+        majority_tmpl = max(counts, key=lambda t: counts[t])
+        minority_subs = tmpl_map[minority_tmpl]
+        minority_files = ", ".join(s.file.name for s in minority_subs)
+        findings.append(Finding(
+            "warning", minority_subs[0].file, None,
+            f"Guide {guide_num}: структурный разрыв — "
+            f"{counts[minority_tmpl]} файлов используют шаблон «{minority_tmpl}», "
+            f"{counts[majority_tmpl]} используют «{majority_tmpl}». "
+            f"Привести к «{majority_tmpl}»: {minority_files}",
+        ))
 
 
 PORTER_REQUIRED_FIELDS = ["subsection_id", "title", "cp_check", "bh_check"]
