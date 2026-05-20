@@ -168,7 +168,7 @@ upstream: [WP-300]
 | Понятие | parent (U.*) | Источник | Комментарий | Статус |
 |---------|--------------|----------|-------------|
 | IWE | `U.System` | DP.IWE.* | Интеллектуальное рабочее окружение | formalized |
-| 4 природы IWE | `U.Kind` | DP.IWE.001 | Наставник + мастерская + сотворец + аватар — классификация видов | formalized |
+| 5 природ IWE | `U.Kind` | DP.IWE.007 | Мастерская + железный человек + аватар + тамагочи + наставник — классификация видов | formalized |
 | Pack | `U.BoundedContext` | SPF.SPEC.002, DP.D.* | Семантическая рамка | formalized |
 | DS (Derivative System) | `U.System` | SPF.SPEC.002 | Производное окружение | formalized |
 | ZP / SPF / FPF (как уровни) | `U.Episteme` | SPF.SPEC.002 | Уровни мета-онтологии | formalized |
