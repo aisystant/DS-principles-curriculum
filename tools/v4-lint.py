@@ -72,6 +72,7 @@ class Subsection:
     raw_concept_lines: list[str] = field(default_factory=list)
     line_start: int = 0
     from_single_ss: bool = False  # True если распарсен через parse_single_subsection (content-файл в aisystant/docs)
+    body_lines: list[str] = field(default_factory=list)  # строки тела после закрывающего ---
 
 
 @dataclass
@@ -317,6 +318,8 @@ def parse_single_subsection(path: Path) -> tuple[Subsection | None, list[Finding
         section_num = int(m.group(2))
         order = int(m.group(3))
 
+    body_lines = lines[end_idx + 1:]
+
     sub = Subsection(
         file=path,
         guide=guide_num,
@@ -327,6 +330,7 @@ def parse_single_subsection(path: Path) -> tuple[Subsection | None, list[Finding
         frontmatter=frontmatter,
         line_start=1,
         from_single_ss=True,
+        body_lines=body_lines,
     )
     return sub, findings
 
@@ -598,6 +602,68 @@ def check_homonyms(by_guide: dict[int, list[Subsection]], findings: list[Finding
 # Subcommand: porter (Этап 8)
 # ============================================================================
 
+def detect_body_template(body_lines: list[str]) -> str:
+    """Определить шаблон тела подраздела по заголовкам.
+
+    Возвращает:
+      "h2"   — ≥3 строк вида `## Заголовок` (шаблон S7-S10, Kimi)
+      "bold" — ≥2 строк вида `**Заголовок**` без H2-блоков (шаблон S1-S6, Claude)
+      "unknown" — тело слишком короткое для однозначного вывода
+    """
+    h2_count = sum(1 for l in body_lines if re.match(r'^## [^\s#]', l))
+    bold_block_count = sum(1 for l in body_lines if re.match(r'^\*\*[^*]+[.:][\*]*\s*$', l))
+    if h2_count >= 3:
+        return "h2"
+    if bold_block_count >= 2 and h2_count == 0:
+        return "bold"
+    return "unknown"
+
+
+def check_body_template_consistency(all_subs: list, findings: list[Finding]) -> None:
+    """WARN если в одном руководстве смешаны два шаблона тела (h2 и bold).
+
+    Срабатывает только для content-файлов (from_single_ss=True), где body_lines заполнены.
+    Auxiliary-подразделы (SS8-SS11) исключены — у них другой формат по дизайну.
+    """
+    aux_id_re = re.compile(r"\.SS(0?8|0?9|10|11)$")
+    by_guide: dict[int, dict[str, list]] = defaultdict(lambda: defaultdict(list))
+
+    for sub in all_subs:
+        if not sub.from_single_ss or not sub.body_lines:
+            continue
+        if sub.subsection_id and aux_id_re.search(sub.subsection_id):
+            continue
+        tmpl = detect_body_template(sub.body_lines)
+        if tmpl != "unknown":
+            by_guide[sub.guide][tmpl].append(sub)
+
+    for guide_num, tmpl_map in by_guide.items():
+        if len(tmpl_map) > 1:
+            # Два шаблона в одном руководстве — структурный разрыв
+            counts = {t: len(subs) for t, subs in tmpl_map.items()}
+            # Определить меньшинство (то, что надо привести к большинству)
+            minority_tmpl = min(counts, key=lambda t: counts[t])
+            minority_subs = tmpl_map[minority_tmpl]
+            majority_tmpl = max(counts, key=lambda t: counts[t])
+            findings.append(Finding(
+                "warning",
+                minority_subs[0].file,
+                None,
+                f"Guide {guide_num}: структурный разрыв — "
+                f"{counts[minority_tmpl]} файлов используют шаблон «{minority_tmpl}», "
+                f"{counts[majority_tmpl]} используют «{majority_tmpl}». "
+                f"Привести к единому шаблону «{majority_tmpl}». "
+                f"Пример файла меньшинства: {minority_subs[0].file.name}",
+            ))
+            for sub in minority_subs[1:]:
+                findings.append(Finding(
+                    "warning",
+                    sub.file,
+                    None,
+                    f"Guide {guide_num}: шаблон «{minority_tmpl}» — нужно привести к «{majority_tmpl}»",
+                ))
+
+
 PORTER_REQUIRED_FIELDS = ["subsection_id", "title", "cp_check", "bh_check"]
 PORTER_RECOMMENDED_FIELDS = ["mastery_node", "stage_relevant", "introduces", "uses",
                               "prerequisites", "can_do", "bottleneck_hint", "parsimony_limit"]
@@ -660,6 +726,8 @@ def cmd_porter(args: argparse.Namespace) -> int:
 
     for sub in all_subs:
         check_porter_frontmatter(sub, known_ids, findings)
+
+    check_body_template_consistency(all_subs, findings)
 
     return report(findings, label="porter")
 
