@@ -122,3 +122,4 @@ p_new.set_defaults(func=cmd_<name>)
 | v1 | 2026-05-16 | Первая версия (WP-321 commit `f3ff233`): 4 подкоманды, smoke 17/17, pre-commit + CI |
 | v1.1 | 2026-05-16 | Ф9 follow-up по independent review: silent pass на несуществующих путях, multi-line YAML, парсер `сослан`, обязательный `--pack`, smoke 28/28 |
 | v2 | 2026-05-16 | Ф10: FPF-проверки (A.7/A.10/A.11/A.1.1 + тройка идентификации), strict markers (unknown/malformed → FAIL), новая подкоманда `graph` (build/diff). smoke 43/43 |
+# smoke test
