@@ -690,6 +690,22 @@ def check_porter_frontmatter(sub: Subsection, known_ids: set[str], findings: lis
                 f"{sub.subsection_id or '<no-id>'}: отсутствует обязательное поле `{field_name}`",
             ))
 
+    # Bounded context: Guides 1–2 must not require cp.iwe (Machine-level competence
+    # belongs to Guide 3). Мостовые подразделы (.07) описывают принцип усиления,
+    # не инструкции по IWE — поэтому cp_check не должен содержать cp.iwe.
+    # Применяется ТОЛЬКО к content-файлам (single SS), не к structure-guide.
+    if sub.from_single_ss and sub.guide in (1, 2):
+        cp_vals = fm.get("cp_check", [])
+        if not isinstance(cp_vals, list):
+            cp_vals = [cp_vals]
+        if "cp.iwe" in cp_vals:
+            findings.append(Finding(
+                "error", sub.file, sub.line_start,
+                f"{sub.subsection_id or '<no-id>'}: `cp_check` содержит `cp.iwe` в Guide {sub.guide}. "
+                "Методические подразделы Guides 1–2 не должны требовать Machine-компетенции. "
+                "Уберите cp.iwe из cp_check (оставьте bh-метку или пустой список).",
+            ))
+
     # B.9 — отсутствие format_version.
     # CHECKLIST v1.1 §B.9: «FAIL если отсутствует в main; WARN в auxiliary».
     # Архитектурное различение: B.9 применяется ТОЛЬКО к одиночным SS-файлам (content в aisystant/docs).
