@@ -63,7 +63,9 @@ applies_to: все изменения в specs/v4-reference/ и aisystant/docs
 | # | Проверка | Критерий | Инструмент | Где внедрять |
 |---|----------|----------|------------|--------------|
 | F-N1 | Битые cross-repo ссылки | Нет `../../../PACK-personal/ontology.md#*` в тексте руководств | `grep` / `lychee` | pre-commit + CI |
-| F-N2 | Frontmatter completeness v4.1 | `format_version`, `pack_refs`, `time_reading`, `time_practice`, `word_count_target`, `status` присутствуют | `sync-guide-to-ontology.py` + скрипт | pre-commit + CI |
+| F-N2 | Frontmatter completeness v4.1 | `format_version`, `pack_refs`, `time_reading`, `time_practice`, `word_count_target`, `status` присутствуют | `v4-lint subsection` (WP-322 Ф20) + `sync-guide-to-ontology.py` | pre-commit + CI |
+| F-N2a | pack_refs ≠ [] при непустом introduces | `pack_refs` содержит ≥1 запись с `concept`+`ref` для каждого `introduces` | `v4-lint subsection` (WP-322 Ф20) | pre-commit + CI |
+| F-N2b | Нумерованный список степеней мастерства | Блок «Степени мастерства» — `^1\.` (не таблица `\|`) | `v4-lint subsection` (WP-322 Ф20) | pre-commit + CI |
 | F-N3 | **Spec–impl completeness** ✅ ЗАКРЫТО | Каждый `subsection_id` в `structure-guide-N.md` имеет контентный файл в `aisystant/docs`. Orphan (файл без объявления) — WARN. | `v4-lint completeness` (WP-322 Ф3.11, 2026-05-19) | CI (v4-lint.yml) + periodic |
 
 ### 2.4. Обязательные блоки v4.1 (актуализировано)
