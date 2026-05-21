@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import yaml
 from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -2276,6 +2277,249 @@ def cmd_completeness(args: argparse.Namespace) -> int:
 
 
 # ============================================================================
+# Subcommand: subsection (WP-322 Ф20)
+# ============================================================================
+
+# Regex to extract concept names from ontology.md §2 table first column
+ONTOLOGY_TERM_RE = re.compile(r"^\|\s*\*\*([^*|]+)\*\*")
+
+
+def load_ontology_concepts(path: Path) -> set[str]:
+    """Извлечь множество имён понятий из ontology.md §2 (первая колонка таблицы)."""
+    concepts: set[str] = set()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return concepts
+    in_glossary = False
+    for line in text.splitlines():
+        if "## 2." in line and "Глоссарий" in line:
+            in_glossary = True
+            continue
+        if in_glossary and line.startswith("## "):
+            break
+        if not in_glossary:
+            continue
+        m = ONTOLOGY_TERM_RE.match(line)
+        if m:
+            name = m.group(1).strip()
+            concepts.add(name)
+    return concepts
+
+
+def _extract_pack_ref_concept(item) -> str | None:
+    """Извлечь имя понятия из записи pack_refs (str или dict)."""
+    if isinstance(item, dict):
+        return str(item.get("concept", "")).strip() or None
+    if isinstance(item, str):
+        if item.startswith("concept:"):
+            return item.split(":", 1)[1].strip()
+        return item.strip()
+    return None
+
+
+def check_pack_refs(sub: Subsection, findings: list[Finding]) -> None:
+    """B.10: pack_refs не пустой при непустом introduces."""
+    fm = sub.frontmatter
+    introduces_raw = fm.get("introduces", [])
+    introduces = introduces_raw if isinstance(introduces_raw, list) else (
+        [introduces_raw] if introduces_raw not in (None, "") else []
+    )
+    # Filter out non-string items
+    introduces = [i for i in introduces if isinstance(i, str)]
+    if not introduces:
+        return  # Nothing to check
+
+    pack_refs_raw = fm.get("pack_refs", [])
+    pack_refs = pack_refs_raw if isinstance(pack_refs_raw, list) else (
+        [pack_refs_raw] if pack_refs_raw not in (None, "") else []
+    )
+    if not pack_refs:
+        findings.append(Finding(
+            "error", sub.file, sub.line_start,
+            f"{sub.subsection_id}: `introduces` не пуст, но `pack_refs` отсутствует или пуст (B.10).",
+        ))
+        return
+
+    pack_concepts: set[str] = set()
+    for item in pack_refs:
+        concept_name = _extract_pack_ref_concept(item)
+        if concept_name:
+            pack_concepts.add(concept_name)
+
+    for name in introduces:
+        if name not in pack_concepts:
+            findings.append(Finding(
+                "error", sub.file, sub.line_start,
+                f"{sub.subsection_id}: понятие «{name}» из `introduces` отсутствует в `pack_refs` (B.10).",
+            ))
+
+
+def check_introduces_vs_ontology(
+    sub: Subsection, ontology_concepts: set[str], findings: list[Finding]
+) -> None:
+    """A.8 Evidence Graph: каждое introduces есть в ontology.md §2."""
+    if not ontology_concepts:
+        return
+    fm = sub.frontmatter
+    introduces_raw = fm.get("introduces", [])
+    introduces = introduces_raw if isinstance(introduces_raw, list) else (
+        [introduces_raw] if introduces_raw not in (None, "") else []
+    )
+    for name in introduces:
+        if not isinstance(name, str):
+            continue
+        if name not in ontology_concepts:
+            findings.append(Finding(
+                "error", sub.file, sub.line_start,
+                f"{sub.subsection_id}: понятие «{name}» из `introduces` отсутствует в ontology.md §2 (A.8).",
+            ))
+
+
+def check_mastery_degrees_format(sub: Subsection, findings: list[Finding]) -> None:
+    """F.4.3: Степени мастерства — нумерованный список 1./2./3./4., не таблица."""
+    body = sub.body_lines
+    in_degrees = False
+    degrees_start = 0
+    for i, line in enumerate(body):
+        if re.search(r"^#{1,4}\s+Степени\s+мастерства", line, re.IGNORECASE):
+            in_degrees = True
+            degrees_start = i
+            continue
+        if in_degrees:
+            # End of section: next heading or empty line followed by heading
+            if line.startswith("#") and i > degrees_start + 1:
+                break
+            # Check for table format (legacy)
+            if re.search(r"^\s*\|", line):
+                findings.append(Finding(
+                    "error", sub.file, sub.line_start + degrees_start,
+                    f"{sub.subsection_id}: «Степени мастерства» оформлены таблицей (legacy-формат). "
+                    f"Требуется нумерованный список 1./2./3./4. (F.4.3).",
+                ))
+                return
+            # Check for numbered list (correct v4.1 format)
+            if re.search(r"^\s*1\.[\s) ]", line):
+                # Found correct format — PASS for this subsection
+                return
+    # If we reached here without finding either table or numbered list
+    if in_degrees:
+        findings.append(Finding(
+            "warning", sub.file, sub.line_start + degrees_start,
+            f"{sub.subsection_id}: «Степени мастерства» не найден нумерованный список 1./2./3./4. (F.4.3).",
+        ))
+
+
+def check_em_dash_density(sub: Subsection, findings: list[Finding]) -> None:
+    """Типографика: длинное тире (—) ≥ 2 на абзац → WARN."""
+    body = sub.body_lines
+    paragraph: list[str] = []
+    for line in body:
+        stripped = line.strip()
+        if not stripped:
+            if paragraph:
+                text = " ".join(paragraph)
+                count = text.count("—")
+                if count >= 2:
+                    findings.append(Finding(
+                        "warning", sub.file, sub.line_start,
+                        f"{sub.subsection_id}: абзац содержит {count} длинных тире (рекомендуется ≤1 на 3 абзаца).",
+                    ))
+                paragraph = []
+            continue
+        paragraph.append(stripped)
+    # Last paragraph
+    if paragraph:
+        text = " ".join(paragraph)
+        count = text.count("—")
+        if count >= 2:
+            findings.append(Finding(
+                "warning", sub.file, sub.line_start,
+                f"{sub.subsection_id}: абзац содержит {count} длинных тире (рекомендуется ≤1 на 3 абзаца).",
+            ))
+
+
+def _load_frontmatter_yaml(path: Path) -> dict:
+    """Перепарсить frontmatter через yaml.safe_load для корректной обработки
+    списков словарей (pack_refs) и других сложных структур.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}
+    end_idx = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            end_idx = i
+            break
+    if end_idx is None:
+        return {}
+    yaml_text = "\n".join(lines[1:end_idx])
+    try:
+        return yaml.safe_load(yaml_text) or {}
+    except yaml.YAMLError:
+        return {}
+
+
+def cmd_subsection(args: argparse.Namespace) -> int:
+    """WP-322 Ф20: проверка docs-файла подраздела (single SS content).
+
+    Покрывает:
+      - B.10 pack_refs ≠ [] при непустом introduces
+      - A.8 introduces vs ontology.md §2
+      - F.4.3 Степени мастерства = нумерованный список (не таблица)
+      - Типографика: длинное тире ≥2 на абзац → WARN
+    """
+    findings: list[Finding] = []
+    targets = [Path(p) for p in args.paths]
+
+    ontology_concepts: set[str] = set()
+    if args.ontology:
+        ontology_path = Path(args.ontology)
+        if ontology_path.exists():
+            ontology_concepts = load_ontology_concepts(ontology_path)
+        else:
+            findings.append(Finding("warning", ontology_path, None,
+                                    f"ontology файл не найден: {ontology_path}"))
+
+    for t in targets:
+        if not t.exists():
+            findings.append(Finding("error", t, None, f"путь не существует: {t}"))
+            continue
+        if t.is_dir():
+            # Recurse into directory for *.md
+            for md_path in sorted(t.rglob("*.md")):
+                sub, parse_findings = parse_single_subsection(md_path)
+                findings.extend(parse_findings)
+                if sub:
+                    # Re-parse frontmatter with proper YAML for pack_refs support
+                    proper_fm = _load_frontmatter_yaml(md_path)
+                    if proper_fm:
+                        sub.frontmatter = proper_fm
+                    check_pack_refs(sub, findings)
+                    check_introduces_vs_ontology(sub, ontology_concepts, findings)
+                    check_mastery_degrees_format(sub, findings)
+                    check_em_dash_density(sub, findings)
+        elif t.is_file():
+            sub, parse_findings = parse_single_subsection(t)
+            findings.extend(parse_findings)
+            if sub:
+                # Re-parse frontmatter with proper YAML for pack_refs support
+                proper_fm = _load_frontmatter_yaml(t)
+                if proper_fm:
+                    sub.frontmatter = proper_fm
+                check_pack_refs(sub, findings)
+                check_introduces_vs_ontology(sub, ontology_concepts, findings)
+                check_mastery_degrees_format(sub, findings)
+                check_em_dash_density(sub, findings)
+
+    return report(findings, label="subsection")
+
+
+# ============================================================================
 # CLI
 # ============================================================================
 
@@ -2414,6 +2658,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Также предупреждать о файлах с subsection_id не из structure-guide",
     )
     p_compl.set_defaults(func=cmd_completeness)
+
+    # WP-322 Ф20: subsection — docs-файлы подразделов
+    p_sub = sub.add_parser(
+        "subsection",
+        help="WP-322 Ф20: проверка docs-файла подраздела (pack_refs, ontology, степени, типографика)",
+        description=(
+            "Проверяет одиночный SS-файл (content в aisystant/docs) на:\n"
+            "  • B.10 pack_refs ≠ [] при непустом introduces\n"
+            "  • A.8 introduces vs ontology.md §2\n"
+            "  • F.4.3 Степени мастерства = нумерованный список (не таблица)\n"
+            "  • Типографика: длинное тире ≥2 на абзац → WARN\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Примеры:\n"
+            "  v4-lint.py subsection docs/ru/personal-design/1-3-iwe-work-and-development/1.06.md \"\n"
+            "      --ontology ../../../PACK-personal/ontology.md\n"
+            "  v4-lint.py subsection docs/ru/personal-design/1-1-systemic-self-development/ \"\n"
+            "      --ontology ../../../PACK-personal/ontology.md\n"
+        ),
+    )
+    p_sub.add_argument("paths", nargs="+", help="Файл или директория с docs-файлами подразделов")
+    p_sub.add_argument(
+        "--ontology",
+        help="Путь к PACK-personal/ontology.md (для проверки introduces vs §2)",
+    )
+    p_sub.set_defaults(func=cmd_subsection)
 
     return parser
 
