@@ -1,0 +1,56 @@
+name: Субагент-ревью Э9
+about: Первый подраздел нового раздела требует обязательного субагент-ревью
+title: "[Э9] Субагент-ревью: {subsection_id}"
+labels:
+  - needs-subagent-review
+  - automated
+assignees:
+  - "{{ github.actor }}"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Обязательное субагент-ревью (Этап 9)
+
+        Этот issue создан автоматически, так как в push был добавлен **первый подраздел нового раздела** (`N.01.md`).
+
+        По [CHECKLIST-subsection-v1.md](../../specs/v4-reference/CHECKLIST-subsection-v1.md) §🟡 G-L, первый SS каждого нового раздела обязан пройти субагент-ревью перед merge в `main`.
+
+  - type: input
+    id: subsection_id
+    attributes:
+      label: Подраздел
+      description: subsection_id из frontmatter
+      placeholder: "PD.GUIDE.N.SX.SS1"
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Чеклист субагент-ревью
+      description: Запустить `/verify subsection <path>` и отметить результаты
+      options:
+        - label: G.1 Границы подраздела чёткие (A.6 Boundary Discipline)
+        - label: G.2 Нарративная связность с предыдущими разделами
+        - label: G.3 Дуга по ступени (тональность для target audience)
+        - label: G.4 Практика реалистична и достижима за ≤5 мин
+        - label: G.5 Аналогия работает (проверена на рецензенте)
+        - label: G.6 Связность с Pack-онтологией (все introduces в ontology.md §2)
+        - label: H.1 Мем → метод → мировоззрение (цепочка прослеживается)
+        - label: H.2 Thinking Through Writing (мышление письмом, не пересказ)
+        - label: I.1 Дверь в бесконечность для ст. 3-5 (горизонт за программой)
+        - label: J.1 Can-do достижимо (проверка на пилота target ступени)
+
+  - type: textarea
+    id: findings
+    attributes:
+      label: Найденные замечания
+      description: Копия вывода `/verify subsection` или краткое резюме
+      placeholder: "PASS / NEEDS_REWORK: ..."
+
+  - type: checkboxes
+    id: resolution
+    attributes:
+      label: Резолюция
+      options:
+        - label: Все пункты PASS → можно merge
+        - label: Есть NEEDS_REWORK → правки внесены, повторный verify PASS

@@ -1,0 +1,72 @@
+name: Auto-trigger Э9 — субагент-ревью первого SS
+
+on:
+  push:
+    branches: [main, staging-v4]
+    paths:
+      - 'docs/ru/personal-design/**/1.01.md'
+      - 'docs/ru/personal-design/**/2.01.md'
+      - 'docs/ru/personal-design/**/3.01.md'
+      - 'docs/ru/personal-design/**/4.01.md'
+      - 'docs/ru/personal-design/**/5.01.md'
+      - 'docs/ru/personal-design/**/6.01.md'
+      - 'docs/ru/personal-design/**/7.01.md'
+      - 'docs/ru/personal-design/**/8.01.md'
+      - 'docs/ru/personal-design/**/9.01.md'
+      - 'docs/ru/personal-design/**/10.01.md'
+
+jobs:
+  detect-first-ss:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect new N.01.md files
+        id: detect
+        run: |
+          NEW_FILES=$(git diff --name-only --diff-filter=A HEAD~1 HEAD || true)
+          echo "new_files=$NEW_FILES" >> "$GITHUB_OUTPUT"
+          MATCH=$(echo "$NEW_FILES" | grep -E '\.01\.md$' || true)
+          if [ -n "$MATCH" ]; then
+            echo "has_new_first_ss=true" >> "$GITHUB_OUTPUT"
+            echo "matched=$MATCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_new_first_ss=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract subsection_id from frontmatter
+        id: extract
+        if: steps.detect.outputs.has_new_first_ss == 'true'
+        run: |
+          FILE=$(echo "${{ steps.detect.outputs.matched }}" | head -n1)
+          SS_ID=$(grep -m1 '^subsection_id:' "$FILE" | sed 's/subsection_id: *//')
+          echo "subsection_id=$SS_ID" >> "$GITHUB_OUTPUT"
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Create subagent-review issue
+        if: steps.detect.outputs.has_new_first_ss == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ssId = '${{ steps.extract.outputs.subsection_id }}' || 'unknown';
+            const file = '${{ steps.extract.outputs.file }}' || 'unknown';
+            const actor = context.actor;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Э9] Субагент-ревью: ${ssId}`,
+              body: `Автоматический триггер Э9: обнаружен первый подраздел нового раздела.\n\n- **Файл:** \`${file}\`\n- **subsection_id:** ${ssId}\n- **Автор push:** @${actor}\n\nЗапустить \`/verify subsection ${file}\` перед merge в \`main\`.\n\nСм. [CHECKLIST-subsection-v1.md](../../specs/v4-reference/CHECKLIST-subsection-v1.md) §🟡 G-L.`,
+              labels: ['needs-subagent-review', 'automated'],
+              assignees: [actor]
+            });
+
+      - name: Step summary
+        run: |
+          if [ "${{ steps.detect.outputs.has_new_first_ss }}" = "true" ]; then
+            echo "::notice:: Создан issue Э9 для ${{ steps.extract.outputs.subsection_id }}"
+          else
+            echo "::notice:: Новых N.01.md не обнаружено — noop"
+          fi
