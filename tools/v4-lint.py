@@ -2490,8 +2490,11 @@ def cmd_subsection(args: argparse.Namespace) -> int:
             findings.append(Finding("error", t, None, f"путь не существует: {t}"))
             continue
         if t.is_dir():
-            # Recurse into directory for *.md
+            # Recurse into directory for *.md; skip index/nav files (not subsections)
+            _SKIP_NAMES = {"index.md", "README.md", "SUMMARY.md", "CHANGELOG.md"}
             for md_path in sorted(t.rglob("*.md")):
+                if md_path.name in _SKIP_NAMES:
+                    continue
                 sub, parse_findings = parse_single_subsection(md_path)
                 findings.extend(parse_findings)
                 if sub:
