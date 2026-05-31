@@ -295,3 +295,325 @@ def check_ar4(file_path: Path, config: AR4Config | None = None) -> list[Finding]
         f"(blacklist={blacklist_hits}, whitelist={whitelist_hits}, triples={triple_parallels})"
     )
     return [(severity, "AR.4", msg)]
+
+
+# ============================================================================
+# AR.5 — Онтологическая чистота FPF (deterministic через структурные коллокации)
+# ============================================================================
+
+DEFAULT_AR5_GLOSSARY = _DATA_DIR / "fpf_entity_type_glossary.yaml"
+
+
+@dataclass(frozen=True)
+class AR5EntityType:
+    """Entity-тип из glossary (см. fpf_entity_type_glossary.yaml)."""
+    name: str
+    fpf_anchor: str
+    aliases: tuple[str, ...] = ()
+    disambiguation_markers: tuple[str, ...] = ()
+    requires_context: bool = False
+    context_keywords: tuple[str, ...] = ()
+    distinguish_from: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class AR5Config:
+    """Конфигурация AR.5.
+
+    window_chars  — размер окна вокруг упоминания для Rule A/B (±N chars).
+    collision_threshold — N collisions по одной паре → один WARN (вместо спама).
+                          0 = выключить агрегацию (каждый collision → WARN).
+    glossary_path — путь к YAML glossary entity-типов.
+    """
+    glossary_path: Path = field(default_factory=lambda: DEFAULT_AR5_GLOSSARY)
+    window_chars: int = 200
+    collision_threshold: int = 3
+    # Frontmatter-ключи и H2-заголовки, которые подавляют Rule C (различение явное).
+    distinction_mastery_nodes: tuple[str, ...] = ("distinction",)
+    distinction_heading_re: str = r"^##\s+Различение\s+"
+
+
+def load_glossary(path: Path) -> list[AR5EntityType]:
+    """Загрузить entity_types из YAML glossary."""
+    import yaml
+    with open(path, encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    raw = data.get("entity_types") or {}
+    entities: list[AR5EntityType] = []
+    for name, props in raw.items():
+        entities.append(
+            AR5EntityType(
+                name=name,
+                fpf_anchor=props.get("fpf_anchor", ""),
+                aliases=tuple(props.get("aliases") or ()),
+                disambiguation_markers=tuple(props.get("disambiguation_markers") or ()),
+                requires_context=bool(props.get("requires_context", False)),
+                context_keywords=tuple(props.get("context_keywords") or ()),
+                distinguish_from=tuple(props.get("distinguish_from") or ()),
+            )
+        )
+    return entities
+
+
+def _split_paragraphs(text: str) -> list[tuple[int, int, str]]:
+    """Разбить текст на абзацы. Возвращает (start_offset, end_offset, paragraph_text)."""
+    paragraphs: list[tuple[int, int, str]] = []
+    start = 0
+    for match in re.finditer(r"\n\s*\n", text):
+        end = match.start()
+        para = text[start:end]
+        if para.strip():
+            paragraphs.append((start, end, para))
+        start = match.end()
+    if start < len(text):
+        tail = text[start:]
+        if tail.strip():
+            paragraphs.append((start, len(text), tail))
+    return paragraphs
+
+
+def _paragraph_window_for_offset(
+    paragraphs: list[tuple[int, int, str]], offset: int
+) -> str:
+    """Вернуть paragraph-window вокруг offset (текущий + предыдущий + следующий)."""
+    for idx, (start, end, para) in enumerate(paragraphs):
+        if start <= offset < end:
+            prev_text = paragraphs[idx - 1][2] if idx > 0 else ""
+            next_text = paragraphs[idx + 1][2] if idx + 1 < len(paragraphs) else ""
+            return "\n\n".join(filter(None, [prev_text, para, next_text]))
+    return ""
+
+
+def _find_mentions(text: str, entity: AR5EntityType) -> list[int]:
+    """Найти offsets упоминаний entity (имя + aliases) в text. Case-insensitive."""
+    text_lower = text.lower()
+    offsets: list[int] = []
+    needles = [entity.name.lower()] + [a.lower() for a in entity.aliases]
+    for needle in needles:
+        start = 0
+        while True:
+            pos = text_lower.find(needle, start)
+            if pos == -1:
+                break
+            offsets.append(pos)
+            start = pos + len(needle)
+    return sorted(set(offsets))
+
+
+def _suppression_active(content: str, config: AR5Config) -> bool:
+    """Проверить, активна ли подавление Rule C через frontmatter или heading."""
+    # Frontmatter mastery_node: [distinction] или mastery_node: distinction.
+    fm_match = _FRONTMATTER_RE.match(content)
+    if fm_match:
+        fm = fm_match.group(0)
+        for node in config.distinction_mastery_nodes:
+            # mastery_node: [..., distinction, ...] или mastery_node: distinction
+            if re.search(rf"mastery_node:\s*\[.*\b{re.escape(node)}\b.*\]", fm) or re.search(
+                rf"mastery_node:\s*{re.escape(node)}\b", fm
+            ):
+                return True
+    # Explicit heading «## Различение X vs Y».
+    if re.search(config.distinction_heading_re, content, re.MULTILINE):
+        return True
+    return False
+
+
+def _collect_mention_intervals(
+    body: str, entities: list[AR5EntityType]
+) -> dict[str, list[tuple[int, int]]]:
+    """Собрать (start, end) интервалы упоминаний с маскированием overlap'ов.
+
+    Сортируем entity по длине самого длинного alias убывающе — длинные сматчатся
+    первыми, их интервалы заносятся в covered. При обработке коротких — offsets,
+    попавшие в covered, отбрасываются.
+
+    Это снимает substring-overlap: «целевая система» сматчится первой, занимает
+    [0, 16); поиск «система» на pos=8 внутри [0,16) — отбрасывается.
+
+    Returns: dict {entity.name → [(start, end), ...]}.
+    """
+    text_lower = body.lower()
+    # Длина самого длинного alias entity (включая name) — для сортировки.
+    def max_len(e: AR5EntityType) -> int:
+        return max(len(s) for s in [e.name] + list(e.aliases))
+
+    sorted_entities = sorted(entities, key=max_len, reverse=True)
+    covered: list[tuple[int, int]] = []  # отсортированные non-overlapping intervals
+    result: dict[str, list[tuple[int, int]]] = {e.name: [] for e in entities}
+
+    def is_covered(pos: int, length: int) -> bool:
+        for (cs, ce) in covered:
+            # перекрытие [pos, pos+length) ∩ [cs, ce)
+            if pos < ce and (pos + length) > cs:
+                return True
+        return False
+
+    for entity in sorted_entities:
+        needles = sorted(
+            {entity.name.lower(), *(a.lower() for a in entity.aliases)},
+            key=len,
+            reverse=True,  # длинные aliases — first внутри одного entity
+        )
+        for needle in needles:
+            start = 0
+            while True:
+                pos = text_lower.find(needle, start)
+                if pos == -1:
+                    break
+                if not is_covered(pos, len(needle)):
+                    result[entity.name].append((pos, pos + len(needle)))
+                    covered.append((pos, pos + len(needle)))
+                start = pos + len(needle)
+        # Дедуп offsets для этого entity (если разные aliases дали одинаковые pos).
+        result[entity.name] = sorted(set(result[entity.name]))
+    return result
+
+
+def check_ar5(
+    file_path: Path, config: AR5Config | None = None
+) -> list[Finding]:
+    """Проверить AR.5 — онтологическая чистота FPF через структурные коллокации.
+
+    Алгоритм (peer-session 2026-05-31-04, CONSENSUS turn 3 + cold-review fixes):
+
+    Substring overlap protection: длинные entity-имена сматчатся первыми, их
+    интервалы маркируются как covered. Поиск коротких entity внутри covered
+    интервалов отбрасывается. Это снимает ложный WARN «система» внутри «целевая
+    система проекта».
+
+    Rule A — disambiguation: для каждого упоминания entity проверяем, что в окне
+    ±window_chars есть хотя бы один disambiguation_marker. Иначе → WARN.
+
+    Rule B — context: если entity.requires_context=true, проверяем что в
+    paragraph-window есть хотя бы один context_keyword. Иначе → WARN.
+
+    Rule C — collision: если упоминание entity находится в одном абзаце с
+    distinguish_from rival, и в paragraph-window нет маркеров «≠» / « — »
+    / «vs» / «не путать» — collision. Counter дедуплицируется по
+    (paragraph_idx, sorted_pair) — каждая реальная textual collision учитывается
+    один раз, не зависимо от итерации по entity или paragraph-window overlap.
+
+    Spam-guard: при ≥collision_threshold collisions по одной паре → один
+    агрегированный WARN. collision_threshold=0 → каждый collision как отдельный WARN.
+
+    Suppression: frontmatter mastery_node: [distinction] или
+    заголовок `## Различение X vs Y` → Rule C подавлен.
+    """
+    if config is None:
+        config = AR5Config()
+
+    try:
+        entities = load_glossary(config.glossary_path)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(
+            f"AR.5 glossary missing: {e.filename}. "
+            f"Создай файл или передай --glossary override."
+        ) from e
+
+    content = file_path.read_text(encoding="utf-8")
+    body = extract_body(content)
+    paragraphs = _split_paragraphs(body)
+    suppression = _suppression_active(content, config)
+
+    # Собираем mentions с маскированием substring overlap (C1+C2 fix).
+    intervals = _collect_mention_intervals(body, entities)
+
+    # Для каждого offset считаем индекс абзаца (для dedup collisions: H1+H2 fix).
+    def paragraph_idx(offset: int) -> int:
+        for idx, (start, end, _) in enumerate(paragraphs):
+            if start <= offset < end:
+                return idx
+        return -1
+
+    findings: list[Finding] = []
+    # Collision dedup: (paragraph_idx, sorted_pair) → 1 collision (не 4-6).
+    collision_set: set[tuple[int, tuple[str, str]]] = set()
+
+    for entity in entities:
+        for (offset, _end) in intervals[entity.name]:
+            # Rule A: disambiguation marker в окне ±window_chars.
+            if entity.disambiguation_markers:
+                win_start = max(0, offset - config.window_chars)
+                win_end = min(len(body), offset + config.window_chars)
+                window = body[win_start:win_end].lower()
+                if not any(m.lower() in window for m in entity.disambiguation_markers):
+                    findings.append(
+                        (
+                            "WARN",
+                            "AR.5",
+                            f"{file_path.name}: «{entity.name}» (offset={offset}) — "
+                            f"нет маркера различения из {list(entity.disambiguation_markers)}",
+                        )
+                    )
+
+            # Rule B: context (если requires_context).
+            if entity.requires_context and entity.context_keywords:
+                para_window = _paragraph_window_for_offset(paragraphs, offset).lower()
+                if not any(c.lower() in para_window for c in entity.context_keywords):
+                    findings.append(
+                        (
+                            "WARN",
+                            "AR.5",
+                            f"{file_path.name}: «{entity.name}» (offset={offset}) — "
+                            f"требуется контекст из {list(entity.context_keywords)}",
+                        )
+                    )
+
+            # Rule C: collision с distinguish_from rivals (если не suppressed).
+            if not suppression and entity.distinguish_from:
+                para_idx = paragraph_idx(offset)
+                if para_idx < 0:
+                    continue
+                para_text = paragraphs[para_idx][2].lower()
+                para_window = _paragraph_window_for_offset(paragraphs, offset).lower()
+                has_diff_marker = any(
+                    m in para_window for m in ("≠", " — ", " vs ", "не путать")
+                )
+                if has_diff_marker:
+                    continue
+                # Rival ищем В ТЕКУЩЕМ абзаце (не в paragraph-window) — иначе тройной счёт.
+                # Также проверяем что rival.lower() не покрыт другим длинным entity.
+                for rival in entity.distinguish_from:
+                    rival_lower = rival.lower()
+                    # Поиск rival в текущем абзаце с проверкой что это не substring
+                    # длинного entity (rival должен быть в intervals соответствующего entity).
+                    rival_intervals = intervals.get(rival, [])
+                    para_start = paragraphs[para_idx][0]
+                    para_end = paragraphs[para_idx][1]
+                    rival_in_para = any(
+                        para_start <= rs < para_end for (rs, _re) in rival_intervals
+                    )
+                    if rival_in_para:
+                        key = (para_idx, tuple(sorted([entity.name, rival])))
+                        collision_set.add(key)
+
+    # Агрегация collisions по парам (H1+H2 fix через set dedup).
+    pair_counts: dict[tuple[str, str], int] = {}
+    for (_idx, pair) in collision_set:
+        pair_counts[pair] = pair_counts.get(pair, 0) + 1
+
+    for pair, count in pair_counts.items():
+        a, b = pair
+        if config.collision_threshold > 0 and count >= config.collision_threshold:
+            findings.append(
+                (
+                    "WARN",
+                    "AR.5",
+                    f"{file_path.name}: {count} коллизий «{a}» / «{b}» — "
+                    f"проверь различение явно (≠ или ` — ` или `## Различение`)",
+                )
+            )
+        else:
+            for _ in range(count):
+                findings.append(
+                    (
+                        "WARN",
+                        "AR.5",
+                        f"{file_path.name}: «{a}» рядом с «{b}» без маркера различия",
+                    )
+                )
+
+    if not findings:
+        findings.append(("PASS", "AR.5", f"{file_path.name}: онтологически чисто"))
+
+    return findings

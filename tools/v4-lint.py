@@ -29,8 +29,10 @@ from pathlib import Path
 from ar_rules import (
     AR3Config,
     AR4Config,
+    AR5Config,
     check_ar3,
     check_ar4,
+    check_ar5,
     iter_subsection_files,
 )
 
@@ -2588,6 +2590,34 @@ def cmd_ar4(args: argparse.Namespace) -> int:
     return 1 if fail_count > 0 else 0
 
 
+def cmd_ar5(args: argparse.Namespace) -> int:
+    """AR.5 — Онтологическая чистота FPF (WP-374, deterministic через структурные коллокации)."""
+    import dataclasses
+
+    config = AR5Config()
+    if args.glossary:
+        config = dataclasses.replace(config, glossary_path=Path(args.glossary))
+    if args.window_chars is not None:
+        config = dataclasses.replace(config, window_chars=args.window_chars)
+
+    targets = iter_subsection_files([Path(p) for p in args.paths])
+
+    pass_count = warn_count = fail_count = 0
+    for target in targets:
+        for severity, rule_id, msg in check_ar5(target, config):
+            print(f"[{severity}] {rule_id}: {msg}")
+            if severity == "PASS":
+                pass_count += 1
+            elif severity == "WARN":
+                warn_count += 1
+            elif severity == "FAIL":
+                fail_count += 1
+
+    print()
+    print(f"[SUMMARY] PASS={pass_count} WARN={warn_count} FAIL={fail_count}")
+    return 1 if fail_count > 0 else 0
+
+
 # ============================================================================
 # CLI
 # ============================================================================
@@ -2817,6 +2847,43 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override path к whitelist (default: tools/data/ar4-whitelist.txt)",
     )
     p_ar4.set_defaults(func=cmd_ar4)
+
+    # AR.5 — WP-374 (deterministic через структурные коллокации)
+    p_ar5 = sub.add_parser(
+        "ar5",
+        help="AR.5 Онтологическая чистота FPF: маркеры различения вокруг entity-упоминаний",
+        description=(
+            "AR.5 — авторская проверка онтологической чистоты подраздела по FPF.\n"
+            "Использует словарь entity-типов (tools/data/fpf_entity_type_glossary.yaml).\n\n"
+            "Три правила:\n"
+            "  • Rule A: каждое упоминание entity (система, роль, сервис, ...) должно\n"
+            "    иметь disambiguation_marker в окне ±200 chars.\n"
+            "  • Rule B: для entity с requires_context — context_keywords в абзаце.\n"
+            "  • Rule C: коллизия с distinguish_from rivals без маркера ≠ / — — WARN.\n"
+            "    Spam-guard: ≥3 коллизий по паре → один агрегированный WARN.\n"
+            "  • Suppression: frontmatter mastery_node:[distinction] или явный\n"
+            "    `## Различение X vs Y` → Rule C подавлен.\n\n"
+            "Severity: только PASS/WARN (AR.5 не блокирующий, FAIL не используется).\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Примеры:\n"
+            "  v4-lint.py ar5 docs/ru/personal-design/1-1-systemic-self-development/\n"
+            "  v4-lint.py ar5 1.06.md --glossary tools/data/fpf_entity_type_glossary.yaml\n"
+        ),
+    )
+    p_ar5.add_argument("paths", nargs="+", help="Файл(ы) или директория(и) с .md-файлами")
+    p_ar5.add_argument(
+        "--glossary",
+        help="Override path к glossary YAML (default: tools/data/fpf_entity_type_glossary.yaml)",
+    )
+    p_ar5.add_argument(
+        "--window-chars",
+        type=int,
+        default=None,
+        help="Override размер окна вокруг упоминания (default: 200)",
+    )
+    p_ar5.set_defaults(func=cmd_ar5)
 
     return parser
 

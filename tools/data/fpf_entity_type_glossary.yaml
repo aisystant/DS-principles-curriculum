@@ -1,0 +1,91 @@
+# fpf_entity_type_glossary.yaml — словарь entity-типов FPF/SPF для AR.5.
+#
+# Источник правил: FPF (Foundational Principles Framework) — A.2.1 (система ≠ роль),
+# A.6.8 (сервис ≠ метод), A.2 (мастерство ≠ степень мастерства).
+# Контекст создания: peer-session 2026-05-31-04-wp374-v4lint-ar3-ar4 (CONSENSUS turn 3).
+#
+# Структура entity:
+#   fpf_anchor              — якорь FPF (для requires_anchor проверки)
+#   aliases                 — синонимы для grep упоминаний
+#   disambiguation_markers  — фразы, которые «снимают» неоднозначность вокруг упоминания
+#                             (для Rule A: маркер различения)
+#   requires_context        — если true, проверяется присутствие context_keywords в абзаце
+#   context_keywords        — слова, которые должны быть в paragraph-window рядом
+#   distinguish_from        — entity, которые легко спутать (для Rule C: cross-entity collision)
+#
+# Алгоритм AR.5 — структурные коллокации:
+#   Rule A (disambiguation): для каждого упоминания entity с непустым disambiguation_markers —
+#                            проверяем что в окне ±200 chars есть хотя бы один маркер.
+#   Rule B (context):        если requires_context=true — проверяем что в абзаце упоминания
+#                            есть хотя бы один context_keyword.
+#   Rule C (collision):      если в paragraph-window упоминание entity рядом с distinguish_from —
+#                            требуется маркер `≠` или ` — `. Spam-guard через threshold-агрегацию.
+
+entity_types:
+
+  система:
+    fpf_anchor: FPF.A.2.1
+    aliases: [систему, системы, систем, системе, системой, системах]
+    disambiguation_markers:
+      # NB: нотация `система#роль:контекст` (FPF) задокументирована, но `#`/`:`
+      # как маркеры не используются — слишком общие (markdown headings, YAML).
+      - "класс систем"
+      - "функциональная позиция"
+      - "функциональное место"
+      - "целостность"
+    distinguish_from: [роль]
+
+  роль:
+    fpf_anchor: FPF.A.2.1
+    aliases: [роли, ролей, ролью, ролях, ролям]
+    disambiguation_markers:
+      - "функциональное место"
+      - "функциональная позиция"
+      - "переносим"
+    distinguish_from: [система, мастерство]
+
+  целевая система:
+    fpf_anchor: FPF.A.2.1
+    aliases: ["целевую систему", "целевой системы", "целевой системе"]
+    requires_context: true
+    context_keywords: [проект, контекст, цели проекта]
+    distinguish_from: [система]
+
+  сервис:
+    fpf_anchor: FPF.A.6.8
+    aliases: [сервиса, сервисе, сервисом, сервисы]
+    disambiguation_markers:
+      - "обещание"
+      - "провайдер"
+      - "работа"                     # работа оказания
+      - "свидетельства"
+      - "результат"
+    distinguish_from: [метод]
+
+  метод:
+    fpf_anchor: FPF.A.6.8
+    aliases: [метода, методе, методу, методом, методы]
+    disambiguation_markers:
+      - "способ"
+      - "процедура"
+      - "алгоритм"
+      - "приём"
+    distinguish_from: [сервис]
+
+  мастерство:
+    fpf_anchor: FPF.A.2
+    aliases: [мастерства, мастерстве, мастерству, мастерством]
+    disambiguation_markers:
+      - "функциональная роль"
+      - "функциональное место"
+    distinguish_from: [степень мастерства]
+
+  степень мастерства:
+    fpf_anchor: FPF.A.2
+    aliases: [степени мастерства, степенью мастерства, степеней мастерства]
+    disambiguation_markers:
+      - "уровень"
+      - "ступень"
+      - "характеристика"
+      - "измеримая"
+    distinguish_from: [мастерство]
