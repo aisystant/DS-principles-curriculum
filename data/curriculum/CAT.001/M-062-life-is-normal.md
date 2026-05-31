@@ -2,8 +2,8 @@
 id: CAT.001.M-062
 name: «Жизнь и так нормальная, зачем менять»
 area: 5
-entry_stage: 0
-blocks_transition: "0→1"
+entry_stage: 1
+blocks_transition: "1→2"
 context: Досуг
 source: PD.CAT.001
 status: current

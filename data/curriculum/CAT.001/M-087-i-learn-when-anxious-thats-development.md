@@ -2,8 +2,8 @@
 id: CAT.001.M-087
 name: «Учусь когда тревожно — значит развиваюсь»
 area: 5
-entry_stage: 2
-blocks_transition: "2→3"
+entry_stage: 3
+blocks_transition: "3→4"
 context: Саморазвитие
 source: post-2025-05-02-my-vse-narkomany
 status: current

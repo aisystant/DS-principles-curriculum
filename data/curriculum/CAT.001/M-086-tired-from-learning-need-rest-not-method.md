@@ -2,8 +2,8 @@
 id: CAT.001.M-086
 name: «Устал от учёбы — значит перегрузился, нужно снизить нагрузку»
 area: 5
-entry_stage: 2
-blocks_transition: "2→3"
+entry_stage: 3
+blocks_transition: "3→4"
 context: Саморазвитие
 source: post-2025-08-05-produktivnoe-sostoyanie
 status: current

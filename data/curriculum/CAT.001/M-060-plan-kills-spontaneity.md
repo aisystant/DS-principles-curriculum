@@ -2,8 +2,8 @@
 id: CAT.001.M-060
 name: «Если всё запланирую, потеряю спонтанность»
 area: 5
-entry_stage: 1
-blocks_transition: "2→3"
+entry_stage: 2
+blocks_transition: "3→4"
 context: Досуг
 source: PD.CAT.001
 status: current

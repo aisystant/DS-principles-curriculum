@@ -2,8 +2,8 @@
 id: CAT.001.M-053
 name: «Мне уже ничего не интересно»
 area: 5
-entry_stage: 1
-blocks_transition: "3→4"
+entry_stage: 2
+blocks_transition: "4→5"
 context: Досуг
 source: PD.CAT.001
 status: current

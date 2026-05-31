@@ -2,8 +2,8 @@
 id: CAT.001.M-084
 name: «ИИ меняет рынок — буду смотреть что будет»
 area: 4
-entry_stage: 1
-blocks_transition: "1→2"
+entry_stage: 2
+blocks_transition: "2→3"
 context: Саморазвитие
 source: post-2025-10-02-kogda-ii-perestanet-byt-instrumentom
 status: current

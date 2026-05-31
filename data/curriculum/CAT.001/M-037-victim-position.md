@@ -2,8 +2,8 @@
 id: CAT.001.M-037
 name: «Я слаб, помогите мне» (позиция жертвы)
 area: 4
-entry_stage: 0
-blocks_transition: "1→2"
+entry_stage: 1
+blocks_transition: "2→3"
 context: Работа
 source: PD.CAT.001
 status: current

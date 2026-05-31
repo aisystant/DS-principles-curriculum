@@ -2,8 +2,8 @@
 id: CAT.001.M-043
 name: «Выгорание — нормальная цена за успех»
 area: 5
-entry_stage: 1
-blocks_transition: "3→4"
+entry_stage: 2
+blocks_transition: "4→5"
 context: Досуг
 source: PD.CAT.001
 status: current

@@ -2,8 +2,8 @@
 id: CAT.001.M-067
 name: «Нужно разрешение чтобы начать — диплом, опыт, должность»
 area: 1
-entry_stage: 0
-blocks_transition: "0→1"
+entry_stage: 1
+blocks_transition: "1→2"
 context: Работа
 source: PD.FORM.003, PD.FAIL.019, PD.FAIL.052
 status: current

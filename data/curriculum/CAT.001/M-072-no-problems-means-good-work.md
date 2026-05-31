@@ -2,8 +2,8 @@
 id: CAT.001.M-072
 name: «Нет жалоб — значит всё хорошо»
 area: 4
-entry_stage: 2
-blocks_transition: "2→3"
+entry_stage: 3
+blocks_transition: "3→4"
 context: Работа
 source: PD.FAIL.019, PD.FAIL.052
 status: current

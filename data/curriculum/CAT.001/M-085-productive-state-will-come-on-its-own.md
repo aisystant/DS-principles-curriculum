@@ -2,8 +2,8 @@
 id: CAT.001.M-085
 name: «Продуктивное состояние само придёт когда буду готов»
 area: 5
-entry_stage: 1
-blocks_transition: "1→2"
+entry_stage: 2
+blocks_transition: "2→3"
 context: Саморазвитие
 source: post-2025-08-05-produktivnoe-sostoyanie
 status: current

@@ -2,8 +2,8 @@
 id: CAT.001.M-078
 name: «Чем умнее ИИ, тем меньше мне нужно думать»
 area: 2
-entry_stage: 3
-blocks_transition: "3→4"
+entry_stage: 4
+blocks_transition: "4→5"
 context: Саморазвитие
 source: post-2025-12-03-memy-kazhutsya-shutkami
 status: current

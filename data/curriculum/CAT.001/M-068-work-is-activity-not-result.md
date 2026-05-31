@@ -2,8 +2,8 @@
 id: CAT.001.M-068
 name: «Я работаю, когда что-то делаю»
 area: 1
-entry_stage: 1
-blocks_transition: "1→2"
+entry_stage: 2
+blocks_transition: "2→3"
 context: Работа
 source: PD.FAIL.019, PD.FAIL.057, docs practicum-lesson-3
 status: current

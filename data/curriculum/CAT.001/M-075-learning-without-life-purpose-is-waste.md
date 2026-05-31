@@ -2,8 +2,8 @@
 id: CAT.001.M-075
 name: «Обучение без дела жизни — трата времени»
 area: 1
-entry_stage: 0
-blocks_transition: "0→1"
+entry_stage: 1
+blocks_transition: "1→2"
 context: Саморазвитие
 source: post-2025-01-27-pochemu-lyudi-ne-hotyat-uchitsya
 status: current

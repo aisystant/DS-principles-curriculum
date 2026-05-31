@@ -2,8 +2,8 @@
 id: CAT.001.M-069
 name: «Я работаю когда хочется — дисциплина не нужна»
 area: 3
-entry_stage: 1
-blocks_transition: "1→2"
+entry_stage: 2
+blocks_transition: "2→3"
 context: Саморазвитие
 source: PD.FAIL.019, PD.FAIL.031, docs practicum-lesson-4
 status: current

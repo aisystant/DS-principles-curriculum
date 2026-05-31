@@ -2,8 +2,8 @@
 id: CAT.001.M-034
 name: «Я и есть моя роль»
 area: 4
-entry_stage: 1
-blocks_transition: "2→3"
+entry_stage: 2
+blocks_transition: "3→4"
 context: Работа
 source: PD.CAT.001
 status: current

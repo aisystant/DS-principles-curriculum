@@ -2,8 +2,8 @@
 id: CAT.001.M-079
 name: «Достаточно научиться правильно задавать вопросы ИИ»
 area: 2
-entry_stage: 2
-blocks_transition: "2→3"
+entry_stage: 3
+blocks_transition: "3→4"
 context: Саморазвитие
 source: post-2025-12-03-memy-kazhutsya-shutkami
 status: current

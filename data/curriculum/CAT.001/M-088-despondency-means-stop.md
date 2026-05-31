@@ -2,8 +2,8 @@
 id: CAT.001.M-088
 name: «Уныние — это сигнал остановиться»
 area: 5
-entry_stage: 2
-blocks_transition: "2→3"
+entry_stage: 3
+blocks_transition: "3→4"
 context: Саморазвитие
 source: post-2025-10-27-antihrupkost
 status: current

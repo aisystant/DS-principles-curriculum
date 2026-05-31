@@ -2,8 +2,8 @@
 id: CAT.001.M-073
 name: «Два дня перед экзаменом, главное сдать»
 area: 3
-entry_stage: 1
-blocks_transition: "1→2"
+entry_stage: 2
+blocks_transition: "2→3"
 context: Саморазвитие
 source: practicum-lesson-6-2026-04-12
 status: current

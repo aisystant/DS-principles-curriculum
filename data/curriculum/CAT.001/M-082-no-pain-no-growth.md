@@ -2,8 +2,8 @@
 id: CAT.001.M-082
 name: «Без страданий не растёшь»
 area: 3
-entry_stage: 1
-blocks_transition: "1→2"
+entry_stage: 2
+blocks_transition: "2→3"
 context: Саморазвитие
 source: post-2025-12-03-memy-kazhutsya-shutkami
 status: current

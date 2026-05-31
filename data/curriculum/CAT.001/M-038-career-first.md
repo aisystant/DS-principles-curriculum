@@ -2,8 +2,8 @@
 id: CAT.001.M-038
 name: «Карьера — главное, остальное подождёт»
 area: 4
-entry_stage: 1
-blocks_transition: "3→4"
+entry_stage: 2
+blocks_transition: "4→5"
 context: Работа
 source: PD.CAT.001
 status: current

@@ -2,8 +2,8 @@
 id: CAT.001.M-076
 name: «Мировоззрение — это просто слова, не программа действий»
 area: 1
-entry_stage: 2
-blocks_transition: "2→3"
+entry_stage: 3
+blocks_transition: "3→4"
 context: Саморазвитие
 source: post-2025-05-02-analogiya-kompyutera-i-cheloveka
 status: current
