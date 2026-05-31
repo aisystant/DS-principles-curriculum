@@ -25,6 +25,9 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# WP-374: AR.3/AR.4/AR.5 rules. ar_rules.py живёт в той же папке tools/.
+from ar_rules import AR3Config, check_ar3, iter_subsection_files
+
 VALID_MASTERY_NODES = {"мыслительное", "саморазвитие", "iwe"}
 VALID_STAGES = {1, 2, 3, 4, 5}
 CONCEPT_MARKERS = {
@@ -2522,6 +2525,30 @@ def cmd_subsection(args: argparse.Namespace) -> int:
     return report(findings, label="subsection")
 
 
+def cmd_ar3(args: argparse.Namespace) -> int:
+    """AR.3 — Полнота подраздела (WP-374, порт из inbox/WP-362/scripts/run_ar3)."""
+    config = AR3Config()
+    if args.blocks_config:
+        config = AR3Config.from_yaml(Path(args.blocks_config))
+
+    targets = iter_subsection_files([Path(p) for p in args.paths])
+
+    pass_count = warn_count = fail_count = 0
+    for target in targets:
+        for severity, rule_id, msg in check_ar3(target, config):
+            print(f"[{severity}] {rule_id}: {msg}")
+            if severity == "PASS":
+                pass_count += 1
+            elif severity == "WARN":
+                warn_count += 1
+            elif severity == "FAIL":
+                fail_count += 1
+
+    print()
+    print(f"[SUMMARY] PASS={pass_count} WARN={warn_count} FAIL={fail_count}")
+    return 1 if fail_count > 0 else 0
+
+
 # ============================================================================
 # CLI
 # ============================================================================
@@ -2688,6 +2715,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Путь к PACK-personal/ontology.md (для проверки introduces vs §2)",
     )
     p_sub.set_defaults(func=cmd_subsection)
+
+    # AR.3 — WP-374 (порт из inbox/WP-362/scripts/wp362-check-subsection.sh run_ar3)
+    p_ar3 = sub.add_parser(
+        "ar3",
+        help="AR.3 Полнота: 11 обязательных блоков подраздела + word_count",
+        description=(
+            "AR.3 — авторская проверка полноты подраздела руководства.\n"
+            "Проверяет наличие 11 обязательных блоков (В одном предложении / Понятия / Мем,\n"
+            "который снимается / Определение из источника / Развитие мысли / Метод / Пример\n"
+            "из жизни / Типичная ошибка / Степени мастерства / Проверка себя / Что дальше)\n"
+            "и word_count подраздела.\n\n"
+            "Severity:\n"
+            "  • word_count<200 && missing>2 → FAIL\n"
+            "  • word_count>=200 && missing==0 → PASS\n"
+            "  • иначе — только WARN-и по отсутствующим блокам\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Примеры:\n"
+            "  v4-lint.py ar3 docs/ru/personal-design/1-1-systemic-self-development/s1-culture-as-admission/\n"
+            "  v4-lint.py ar3 1.06.md --blocks-config tools/data/ar3-blocks-rr.yaml\n"
+        ),
+    )
+    p_ar3.add_argument("paths", nargs="+", help="Файл(ы) или директория(и) с .md-файлами подразделов")
+    p_ar3.add_argument(
+        "--blocks-config",
+        help="Опциональный YAML-override (поля: required_blocks, min_word_count, max_missing_for_pass, fail_threshold_missing)",
+    )
+    p_ar3.set_defaults(func=cmd_ar3)
 
     return parser
 
