@@ -26,7 +26,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # WP-374: AR.3/AR.4/AR.5 rules. ar_rules.py живёт в той же папке tools/.
-from ar_rules import AR3Config, check_ar3, iter_subsection_files
+from ar_rules import (
+    AR3Config,
+    AR4Config,
+    check_ar3,
+    check_ar4,
+    iter_subsection_files,
+)
 
 VALID_MASTERY_NODES = {"мыслительное", "саморазвитие", "iwe"}
 VALID_STAGES = {1, 2, 3, 4, 5}
@@ -2549,6 +2555,39 @@ def cmd_ar3(args: argparse.Namespace) -> int:
     return 1 if fail_count > 0 else 0
 
 
+def cmd_ar4(args: argparse.Namespace) -> int:
+    """AR.4 — Анти-ИИ-стиль (WP-374, порт из inbox/WP-362/scripts/wp362-style-grep.sh).
+
+    AR.4 проверяет ВСЕ .md в директории (включая 0*-structure*, index.md, README,
+    *-exercises, *-review-questions) — стиль важен везде, exclude_patterns пуст.
+    """
+    import dataclasses
+
+    config = AR4Config()
+    if args.blacklist:
+        config = dataclasses.replace(config, blacklist_path=Path(args.blacklist))
+    if args.whitelist:
+        config = dataclasses.replace(config, whitelist_path=Path(args.whitelist))
+
+    # AR.4 не исключает структурные файлы — пустой exclude_patterns.
+    targets = iter_subsection_files([Path(p) for p in args.paths], exclude_patterns=())
+
+    pass_count = warn_count = fail_count = 0
+    for target in targets:
+        for severity, rule_id, msg in check_ar4(target, config):
+            print(f"[{severity}] {rule_id}: {msg}")
+            if severity == "PASS":
+                pass_count += 1
+            elif severity == "WARN":
+                warn_count += 1
+            elif severity == "FAIL":
+                fail_count += 1
+
+    print()
+    print(f"[SUMMARY] PASS={pass_count} WARN={warn_count} FAIL={fail_count}")
+    return 1 if fail_count > 0 else 0
+
+
 # ============================================================================
 # CLI
 # ============================================================================
@@ -2744,6 +2783,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="Опциональный YAML-override (поля: required_blocks, min_word_count, max_missing_for_pass, fail_threshold_missing)",
     )
     p_ar3.set_defaults(func=cmd_ar3)
+
+    # AR.4 — WP-374 (порт из inbox/WP-362/scripts/wp362-style-grep.sh)
+    p_ar4 = sub.add_parser(
+        "ar4",
+        help="AR.4 Анти-ИИ-стиль: blacklist/whitelist фраз + тройные параллели",
+        description=(
+            "AR.4 — авторская проверка академического стиля подраздела.\n"
+            "Ищет маркеры LLM-стилистики (blacklist), вычитает технические термины\n"
+            "из PACK (whitelist), считает тройные параллели «не X, не Y, не Z».\n"
+            "Auto-exclude: frontmatter, code blocks, Pack-цитаты в `inline code` и\n"
+            "> blockquote, реплики в «...».\n\n"
+            "Severity:\n"
+            "  • net >= 3 → FAIL\n"
+            "  • net >= 1 → WARN\n"
+            "  • иначе → PASS\n"
+            "где net = blacklist_hits - whitelist_hits + triple_parallels.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Примеры:\n"
+            "  v4-lint.py ar4 docs/ru/personal-design/1-1-systemic-self-development/\n"
+            "  v4-lint.py ar4 1.06.md --blacklist tools/data/ar4-blacklist-rr.txt\n"
+        ),
+    )
+    p_ar4.add_argument("paths", nargs="+", help="Файл(ы) или директория(и) с .md-файлами")
+    p_ar4.add_argument(
+        "--blacklist",
+        help="Override path к blacklist (default: tools/data/ar4-blacklist.txt)",
+    )
+    p_ar4.add_argument(
+        "--whitelist",
+        help="Override path к whitelist (default: tools/data/ar4-whitelist.txt)",
+    )
+    p_ar4.set_defaults(func=cmd_ar4)
 
     return parser
 

@@ -165,3 +165,133 @@ def check_ar3(file_path: Path, config: AR3Config | None = None) -> list[Finding]
         findings.append(("PASS", "AR.3", f"{file_path.name}: полный"))
 
     return findings
+
+
+# ============================================================================
+# AR.4 — Анти-ИИ-стиль (порт из wp362-style-grep.sh)
+# ============================================================================
+
+# Дефолтные пути к ar4 data-файлам (относительно ar_rules.py).
+_DATA_DIR = Path(__file__).resolve().parent / "data"
+DEFAULT_AR4_BLACKLIST = _DATA_DIR / "ar4-blacklist.txt"
+DEFAULT_AR4_WHITELIST = _DATA_DIR / "ar4-whitelist.txt"
+
+# Pre-compiled regex'ы для extract_body.
+_FRONTMATTER_RE = re.compile(r"^---\s*\n.*?\n---\s*\n", re.DOTALL)
+_CODE_BLOCK_RE = re.compile(r"^```.*?^```", re.DOTALL | re.MULTILINE)
+_PACK_BLOCKQUOTE_RE = re.compile(
+    r"^>.*?(?:PD\.[A-Z]+\.\d+|FPF\.[A-Z]+).*?$", re.MULTILINE
+)
+_INLINE_PACK_RE = re.compile(r"`[A-Z]+\.[A-Z]+\.\d+[^`]*`")
+_GUILLEMET_QUOTE_RE = re.compile(r"«[^»]*»")
+# Тройные параллели «не X, не Y, не Z» (lowercase «не», cyrillic body).
+# Parity с bash baseline `[а-я]+` (БЕЗ ё, U+0451 вне диапазона U+0430-U+044F).
+# Если потребуется включить ё — отдельный РП с обновлением baseline.
+_TRIPLE_PARALLEL_RE = re.compile(r"не [а-я]+, не [а-я]+, не [а-я]+")
+
+
+def _load_phrases(path: Path) -> list[str]:
+    """Загрузить фразы из файла (пропустить пустые и `#`-комментарии)."""
+    phrases: list[str] = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            phrases.append(stripped)
+    return phrases
+
+
+def extract_body(content: str) -> str:
+    """Удалить из текста frontmatter, code blocks, Pack-цитаты, реплики «...».
+
+    Воспроизводит логику wp362-style-grep.sh:43-74 (awk + sed). Порядок важен:
+    сначала frontmatter, потом code blocks, потом блок-цитаты с Pack-ID,
+    потом inline `PD.X.NNN`, потом реплики в «...».
+    """
+    body = _FRONTMATTER_RE.sub("", content, count=1)
+    body = _CODE_BLOCK_RE.sub("", body)
+    body = _PACK_BLOCKQUOTE_RE.sub("", body)
+    body = _INLINE_PACK_RE.sub("", body)
+    body = _GUILLEMET_QUOTE_RE.sub("", body)
+    return body
+
+
+@dataclass(frozen=True)
+class AR4Config:
+    """Конфигурация AR.4 (анти-ИИ-стилистика).
+
+    Defaults воспроизводят wp362-style-grep.sh: WARN при net≥1, FAIL при net≥3.
+    blacklist/whitelist — пути к текстовым файлам (одна фраза на строку,
+    `#` — комментарий).
+    """
+
+    blacklist_path: Path = field(default_factory=lambda: DEFAULT_AR4_BLACKLIST)
+    whitelist_path: Path = field(default_factory=lambda: DEFAULT_AR4_WHITELIST)
+    warn_threshold: int = 1
+    fail_threshold: int = 3
+
+
+def _count_phrase_lines(body_lower: str, phrase: str) -> int:
+    """Число строк в body_lower, содержащих phrase (parity с `grep -c`)."""
+    p = phrase.lower()
+    return sum(1 for line in body_lower.splitlines() if p in line)
+
+
+def _count_triple_lines(body: str) -> int:
+    """Число строк, на которых сматчился `_TRIPLE_PARALLEL_RE` (parity с `grep -cE`)."""
+    return sum(1 for line in body.splitlines() if _TRIPLE_PARALLEL_RE.search(line))
+
+
+def check_ar4(file_path: Path, config: AR4Config | None = None) -> list[Finding]:
+    """Проверить AR.4 (анти-ИИ-стилистика) для одного .md-файла.
+
+    Алгоритм (порт wp362-style-grep.sh, parity по counting-семантике):
+      1. extract_body — убрать frontmatter / code / Pack-цитаты / «...» реплики
+      2. blacklist_hits = число СТРОК (не occurrences) с фразами из blacklist
+      3. whitelist_hits = аналогично
+      4. triple_parallels = число строк с `не X, не Y, не Z`
+      5. net = blacklist_hits − whitelist_hits + triple_parallels
+      6. Severity:
+           net >= fail_threshold (3) → FAIL
+           net >= warn_threshold (1) → WARN
+           иначе → PASS
+
+    Важно: bash `grep -c` считает СТРОКИ-совпадения, не occurrences. Если одна
+    строка содержит фразу 3 раза — bash вернёт 1. Эквивалентно реализовано через
+    `_count_phrase_lines`/`_count_triple_lines`.
+    """
+    if config is None:
+        config = AR4Config()
+
+    try:
+        blacklist = _load_phrases(config.blacklist_path)
+        whitelist = _load_phrases(config.whitelist_path)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(
+            f"AR.4 config missing: {e.filename}. "
+            f"Создай файл или передай --blacklist/--whitelist override."
+        ) from e
+
+    content = file_path.read_text(encoding="utf-8")
+    body = extract_body(content)
+    body_lower = body.lower()
+
+    blacklist_hits = sum(_count_phrase_lines(body_lower, p) for p in blacklist)
+    whitelist_hits = sum(_count_phrase_lines(body_lower, p) for p in whitelist)
+    triple_parallels = _count_triple_lines(body)
+
+    net = blacklist_hits - whitelist_hits + triple_parallels
+
+    if net >= config.fail_threshold:
+        severity = "FAIL"
+    elif net >= config.warn_threshold:
+        severity = "WARN"
+    else:
+        severity = "PASS"
+
+    msg = (
+        f"{file_path.name}: net={net} "
+        f"(blacklist={blacklist_hits}, whitelist={whitelist_hits}, triples={triple_parallels})"
+    )
+    return [(severity, "AR.4", msg)]

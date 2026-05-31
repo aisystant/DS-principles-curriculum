@@ -1,0 +1,22 @@
+# wp362-whitelist.txt — техтермы из PACK, которые НЕ считать ИИ-стилистикой
+# CONSENSUS turn 3 + manual fallback (peer-session 2026-05-28-18)
+#
+# СТАТУС: пустой whitelist + auto-exclude через design fixes в wp362-style-grep.sh
+#
+# Design choice вместо whitelist phrase-context entries:
+#   1. PD/MIM/FPF цитаты в `inline code` или > blockquote → auto-excluded (wp362-style-grep.sh)
+#   2. «...» цитаты примеров → auto-excluded (wp362-style-grep.sh: sed 's/«[^»]*»//g')
+#      Обоснование: «давайте перепишем на Rust» — это речевой паттерн людей в Примере из жизни,
+#      а не ИИ-стилистика. Их 13 на staging-v4, все в кавычках.
+#
+# Auto-grep результат: 0 кандидатов в PACK headers/title.
+# Manual fallback finding: основной источник false-positive blacklist — цитаты примеров.
+# Fix design level, не whitelist level.
+#
+# Phrase-context entries (если будут найдены в Ф3):
+#   формат: <phrase> | <SOURCE>:<ID> — <legit_context_reason>
+#
+# Пример (для будущих entries):
+# ключевое различие | PD.FORM.089:§4 — техтермин в Диагнозе R28, не стилистика
+
+# (пока пусто, ожидается заполнение в Ф3 при первых FAIL)
