@@ -43,7 +43,7 @@ body:
     id: drift_table
     attributes:
       label: Drift таблица
-      description: "Структурированный JSON output из stub-pack-drift.sh"
+      description: "Структурированный JSON output из v4-lint pack-drift (--json)"
       placeholder: |
         ```json
         {

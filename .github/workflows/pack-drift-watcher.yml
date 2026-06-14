@@ -7,6 +7,10 @@ name: Pack Drift Watcher
 #
 # Проверяет drift между PACK-personal/PD.FORM.089 и подразделами руководств v4.
 # При drift > 0 — создаёт issue по шаблону .github/ISSUE_TEMPLATE/pack-drift.yml.
+#
+# WP-362 Ф7 (peer-session 2026-06-14-44): переключён со stub-pack-drift.sh на реальный
+# `v4-lint.py pack-drift --json`. Контракт --json: exit 0 при штатной отработке (drift в JSON),
+# exit 2 при сбое самого инструмента → шаг падает, watcher не зеленеет молча.
 
 on:
   repository_dispatch:
@@ -44,7 +48,15 @@ jobs:
           token: ${{ secrets.PACK_READ_TOKEN || github.token }}
           path: pack-personal
 
-      - name: Run stub-pack-drift
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Run pack-drift detector
         id: drift
         env:
           PACK_PATH_INPUT: ${{ github.event.inputs.pack_path || inputs.pack_path || 'pack/personal-development/02-domain-entities/formalizations/PD.FORM.089-learner-rcs.md' }}
@@ -55,11 +67,16 @@ jobs:
             exit 1
           fi
 
-          DRIFT_JSON=$(bash curriculum/tools/stub-pack-drift.sh --pack "$PACK_FILE" --curriculum curriculum --verbose)
+          # Реальный детектор (WP-362 Ф7). pack-root выводится из --pack самим инструментом
+          # (derive_pack_root): PD.METHOD живёт не рядом с PD.FORM, нужен корень домена.
+          # --json: exit 0 при отработке (drift в JSON), exit 2 при сбое инструмента (упадёт здесь).
+          DRIFT_JSON=$(python3 curriculum/tools/v4-lint.py pack-drift \
+            curriculum/specs/v4-reference/ --pack "$PACK_FILE" --json)
           echo "$DRIFT_JSON" > /tmp/drift.json
 
           DRIFT_COUNT=$(echo "$DRIFT_JSON" | jq -r '.drift_count')
-          PACK_HASH=$(echo "$DRIFT_JSON" | jq -r '.pack_hash')
+          # pack_hash — метаданные CI (хеш git-файла), считаем в shell, не в линтере (single responsibility).
+          PACK_HASH=$( { sha256sum "$PACK_FILE" 2>/dev/null || shasum -a 256 "$PACK_FILE"; } | cut -c1-8)
 
           echo "drift_count=$DRIFT_COUNT" >> "$GITHUB_OUTPUT"
           echo "pack_hash=$PACK_HASH" >> "$GITHUB_OUTPUT"

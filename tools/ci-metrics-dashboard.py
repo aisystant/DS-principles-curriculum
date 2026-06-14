@@ -77,7 +77,7 @@ def get_drift_count(run_id: int) -> int | None:
                     return int(val)
                 except ValueError:
                     continue
-        # Pattern 2: Drift count: 1 (from echo in stub-pack-drift step)
+        # Pattern 2: Drift count: 1 (from echo in pack-drift step)
         if "Drift count:" in line:
             parts = line.split("Drift count:")
             if len(parts) >= 2:
