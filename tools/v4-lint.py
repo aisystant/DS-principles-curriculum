@@ -2912,12 +2912,12 @@ def build_parser() -> argparse.ArgumentParser:
     # AR.3 — WP-374 (порт из inbox/WP-362/scripts/wp362-check-subsection.sh run_ar3)
     p_ar3 = sub.add_parser(
         "ar3",
-        help="AR.3 Полнота: 11 обязательных блоков подраздела + word_count",
+        help="AR.3 Полнота: 9 обязательных блоков подраздела v4.1 + word_count",
         description=(
             "AR.3 — авторская проверка полноты подраздела руководства.\n"
-            "Проверяет наличие 11 обязательных блоков (В одном предложении / Понятия / Мем,\n"
-            "который снимается / Определение из источника / Развитие мысли / Метод / Пример\n"
-            "из жизни / Типичная ошибка / Степени мастерства / Проверка себя / Что дальше)\n"
+            "По умолчанию: 9 блоков формата v4.1 (В одном предложении / Понятия /\n"
+            "Объяснение / На практике / Типичный кейс / Типичная ошибка /\n"
+            "Степени мастерства / Проверка себя / Что дальше).\n"
             "и word_count подраздела.\n\n"
             "Severity:\n"
             "  • word_count<200 && missing>2 → FAIL\n"
@@ -2934,7 +2934,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_ar3.add_argument("paths", nargs="+", help="Файл(ы) или директория(и) с .md-файлами подразделов")
     p_ar3.add_argument(
         "--blocks-config",
-        help="Опциональный YAML-override (поля: required_blocks, min_word_count, max_missing_for_pass, fail_threshold_missing)",
+        default=str(Path(__file__).parent / "data" / "ar3-blocks-v41.yaml"),
+        help="YAML с required_blocks и порогами (default: data/ar3-blocks-v41.yaml). Поля: required_blocks, min_word_count, max_missing_for_pass, fail_threshold_missing",
     )
     p_ar3.set_defaults(func=cmd_ar3)
 
