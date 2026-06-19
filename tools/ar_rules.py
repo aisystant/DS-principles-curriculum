@@ -29,6 +29,7 @@ DEFAULT_EXCLUDE_PATTERNS: tuple[str, ...] = (
     r"^README",
     r".*-exercises\.md$",
     r".*-review-questions\.md$",
+    r".*\.(08|09|10|11)\.md$",  # aux/exercise/review/summary subsections (e.g. 1.08.md concept list, 1.09.md exercises)
 )
 
 
